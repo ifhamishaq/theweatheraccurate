@@ -21,6 +21,10 @@ var state = {
   searchResults: []
 };
 
+// Performance: detect mobile for reduced rendering
+var isMobileDevice = window.innerWidth <= 768;
+window.addEventListener('resize', function() { isMobileDevice = window.innerWidth <= 768; });
+
 var WEATHER_CODES = {
   0: { description: 'Clear Sky', theme: 'sunny', isClear: true },
   1: { description: 'Mainly Clear', theme: 'sunny', isClear: true },
@@ -277,7 +281,7 @@ function applyWeatherTheme(code, solarPhase) {
 }
 
 function fetchWeatherData(lat, lon) {
-  var weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,weather_code,visibility,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&past_days=1&timezone=auto';
+  var weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,weather_code,visibility,uv_index,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&past_days=1&timezone=auto';
   var aqiUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi';
 
   return Promise.all([
@@ -580,6 +584,16 @@ function renderDashboard() {
   renderSavedCities();
 }
 
+// Lightweight mini weather icon for performance on mobile hourly strips
+function getMiniWeatherIcon(code) {
+  var info = WEATHER_CODES[code] || { theme: 'sunny', isClear: true };
+  if (info.isClear) return '<svg viewBox="0 0 32 32" width="100%" height="100%"><circle cx="16" cy="16" r="8" fill="#fbbf24"/></svg>';
+  if (info.theme === 'snow') return '<svg viewBox="0 0 32 32" width="100%" height="100%"><circle cx="16" cy="12" r="7" fill="rgba(255,255,255,0.8)"/><circle cx="12" cy="20" r="2" fill="#bae6fd"/><circle cx="20" cy="22" r="2" fill="#bae6fd"/></svg>';
+  if (info.theme === 'thunderstorm') return '<svg viewBox="0 0 32 32" width="100%" height="100%"><path d="M10 14h12a6 6 0 00-12 0z" fill="rgba(255,255,255,0.6)"/><polygon points="16,16 13,24 17,20 19,26" fill="#fbbf24"/></svg>';
+  if (info.theme === 'drizzle') return '<svg viewBox="0 0 32 32" width="100%" height="100%"><path d="M10 14h12a6 6 0 00-12 0z" fill="rgba(255,255,255,0.7)"/><line x1="13" y1="20" x2="13" y2="25" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="19" x2="19" y2="24" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/></svg>';
+  return '<svg viewBox="0 0 32 32" width="100%" height="100%"><path d="M8 16h16a7 7 0 00-16 0z" fill="rgba(255,255,255,0.7)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/></svg>';
+}
+
 function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
   var container = $('hourlyForecast');
   if (!container) return;
@@ -600,7 +614,7 @@ function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
     card.className = 'hourly-card';
     card.innerHTML = 
       '<span class="h-time">' + label + '</span>' +
-      '<div class="h-icon">' + getFrostedGlassMascotSVG(hourly.weather_code[realIdx], itemPhase) + '</div>' +
+      '<div class="h-icon">' + (isMobileDevice ? getMiniWeatherIcon(hourly.weather_code[realIdx]) : getFrostedGlassMascotSVG(hourly.weather_code[realIdx], itemPhase)) + '</div>' +
       '<span class="h-temp">' + formatTemp(hourly.temperature_2m[realIdx]) + '°</span>';
     container.appendChild(card);
   });
@@ -951,7 +965,7 @@ function drawNativeInteractiveChart(ctx, canvas, temps, labels, pops, codes, mLa
 
     if (closestIdx !== hoverIndex) {
       hoverIndex = closestIdx;
-      render();
+      requestAnimationFrame(render);
     }
   };
 
