@@ -1,5 +1,5 @@
 /* ==========================================================================
-   The Weather Accurate - Frosted Glass & Interactive Features Design System
+   The Weather Accurate - Comprehensive Mobile & Tablet Responsive CSS
    ========================================================================== */
 
 :root {
@@ -46,6 +46,7 @@ body.accent-emerald {
 html, body {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-sans);
   background-color: #0b0f19;
   color: var(--text-white);
@@ -191,6 +192,7 @@ body.weather-theme-snow .ambient-background {
   cursor: pointer;
   line-height: 1;
   opacity: 0.8;
+  padding: 0.2rem 0.5rem;
   transition: opacity 0.15s ease;
 }
 
@@ -206,7 +208,7 @@ body.weather-theme-snow .ambient-background {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
   width: 100%;
 }
 
@@ -218,6 +220,7 @@ body.weather-theme-snow .ambient-background {
   font-weight: 600;
   font-size: 1.15rem;
   color: var(--text-white);
+  white-space: nowrap;
 }
 
 .brand-badge svg {
@@ -243,7 +246,7 @@ body.weather-theme-snow .ambient-background {
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 /* Accent Color Picker Group */
@@ -293,6 +296,7 @@ body.weather-theme-snow .ambient-background {
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 38px;
 }
 
 .btn-voice-briefing:hover {
@@ -325,9 +329,10 @@ body.weather-theme-snow .ambient-background {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   border-radius: var(--radius-pill);
-  padding: 0.35rem 0.85rem;
+  padding: 0.4rem 0.85rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 42px;
 }
 
 .search-input-pill:focus-within {
@@ -358,11 +363,14 @@ body.weather-theme-snow .ambient-background {
   color: #64748b;
   font-size: 1.1rem;
   line-height: 1;
-  padding: 0 0.25rem;
+  padding: 0.3rem;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: color 0.15s ease;
+  min-width: 32px;
+  min-height: 32px;
 }
 
 .btn-clear:hover, .btn-locate:hover {
@@ -424,6 +432,7 @@ body.weather-theme-snow .ambient-background {
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 36px;
 }
 
 .segment-btn.active {
@@ -439,7 +448,11 @@ body.weather-theme-snow .ambient-background {
   gap: 0.6rem;
   overflow-x: auto;
   padding: 0.2rem 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+
+.quick-cities-row::-webkit-scrollbar { display: none; }
 
 .saved-pills-row {
   display: flex;
@@ -468,6 +481,7 @@ body.weather-theme-snow .ambient-background {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
+  min-height: 36px;
 }
 
 .preset-pill:hover, .preset-pill.active {
@@ -511,8 +525,8 @@ body.weather-theme-snow .ambient-background {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -723,6 +737,7 @@ body.weather-theme-snow .ambient-background {
   gap: 0.85rem;
   overflow-x: auto;
   padding-bottom: 0.3rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hourly-scroll-strip::-webkit-scrollbar { height: 4px; }
@@ -895,6 +910,7 @@ body.weather-theme-snow .ambient-background {
 .val-md { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; }
 
 /* Daily Forecast List & Expandable Hourly Drawers */
+.panel-header-with-badge { display: flex; justify-content: space-between; align-items: center; }
 .daily-list-wrapper { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
 
 .daily-item-container {
@@ -977,8 +993,15 @@ body.weather-theme-snow .ambient-background {
   padding: 1rem 0;
 }
 
-/* --- Responsive Media Queries --- */
-@media (max-width: 1100px) {
+/* ==========================================================================
+   📱 COMPREHENSIVE RESPONSIVE MEDIA QUERIES (TABLETS & PHONES)
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .full-viewport {
+    padding: 1rem;
+    gap: 1rem;
+  }
   .full-content-grid {
     grid-template-columns: 1fr;
   }
@@ -989,16 +1012,137 @@ body.weather-theme-snow .ambient-background {
 
 @media (max-width: 768px) {
   .app-navbar {
-    grid-template-columns: 1fr auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
+
+  .navbar-left {
+    order: 1;
+  }
+
+  .navbar-right {
+    order: 2;
+  }
+
   .navbar-center {
-    grid-column: 1 / -1;
     order: 3;
+    width: 100%;
+    max-width: 100%;
   }
-  .metrics-tiles-grid {
-    grid-template-columns: 1fr;
+
+  .search-form {
+    max-width: 100%;
   }
+
+  .hero-stage-card {
+    padding: 1.25rem 1rem;
+    gap: 1rem;
+  }
+
+  .hero-artwork-box {
+    width: 130px;
+    height: 130px;
+  }
+
   .temp-val {
-    font-size: 4.5rem;
+    font-size: 4rem;
+  }
+
+  .stage-hourly-wrapper {
+    padding-top: 0.75rem;
+  }
+
+  .hourly-card {
+    flex: 0 0 64px;
+    padding: 0.5rem 0.3rem;
+  }
+
+  .chart-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chart-metric-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px;
+  }
+
+  .chart-tab {
+    flex: 1 0 auto;
+    text-align: center;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .full-viewport {
+    padding: 0.6rem;
+    gap: 0.75rem;
+  }
+
+  .brand-text {
+    font-size: 1rem;
+  }
+
+  .dev-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .accent-picker-group {
+    padding: 3px 6px;
+  }
+
+  .accent-dot {
+    width: 12px;
+    height: 12px;
+  }
+
+  .btn-voice-briefing {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .segment-btn {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .metrics-tiles-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .detail-tile-card {
+    padding: 0.75rem;
+  }
+
+  .tile-main-val {
+    font-size: 1.4rem;
+  }
+
+  .daily-item-row {
+    grid-template-columns: 60px 26px 1fr 65px;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.45rem 0.2rem;
+  }
+
+  .d-high-low {
+    font-size: 0.82rem;
+  }
+
+  .temp-val {
+    font-size: 3.5rem;
+  }
+
+  .temp-unit-symbol {
+    font-size: 1.6rem;
   }
 }

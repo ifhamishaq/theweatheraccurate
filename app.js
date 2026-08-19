@@ -1,5 +1,5 @@
 // ==========================================================================
-// The Weather Accurate - Auto Geolocation & Mobile Responsive Engine
+// The Weather Accurate - High-Precision Auto Geolocation & Responsive Engine
 // ==========================================================================
 
 var state = {
@@ -964,7 +964,6 @@ function drawNativeInteractiveChart(ctx, canvas, temps, labels, pops, codes, mLa
 function loadLocationWeather(lat, lon, name, country) {
   state.location = { lat: lat, lon: lon, name: name || 'Pristina', country: country || '' };
   
-  // Persist location locally for zero-wait load next visit
   localStorage.setItem('user_last_lat', lat);
   localStorage.setItem('user_last_lon', lon);
   localStorage.setItem('user_last_name', name || 'Pristina');
@@ -973,7 +972,7 @@ function loadLocationWeather(lat, lon, name, country) {
   var input = $('citySearch');
   if (input) input.value = name || 'Pristina';
 
-  fetchWeatherData(lat, lon).then(function(res) {
+  return fetchWeatherData(lat, lon).then(function(res) {
     state.weather = res.weather;
     state.aqi = res.aqi;
     renderDashboard();
@@ -1151,31 +1150,45 @@ function setupMetricTabs() {
   });
 }
 
-// 🌐 Seamless Automatic Geolocation Engine (HTML5 + IP Fallback)
+// 🌐 Bulletproof Automatic Geolocation Engine (HTML5 + BigDataCloud Reverse Geocoding)
 function autoDetectLocation() {
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
       function(pos) {
         var lat = pos.coords.latitude;
         var lon = pos.coords.longitude;
-        // Reverse Geocode City Name via Open-Meteo
-        fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + lat.toFixed(2) + ',' + lon.toFixed(2) + '&count=1')
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            var name = (d.results && d.results[0]) ? d.results[0].name : 'Current Location';
-            loadLocationWeather(lat, lon, name);
-          })
-          .catch(function() {
-            loadLocationWeather(lat, lon, 'Current Location');
-          });
+        
+        // 1. Instantly load weather for GPS coordinates
+        loadLocationWeather(lat, lon, 'Current Location').then(function() {
+          // 2. Asynchronously resolve city & country name via CORS-friendly BigDataCloud API
+          fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=en')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              if (d && (d.city || d.locality || d.principalSubdivision)) {
+                var cityName = d.city || d.locality || d.principalSubdivision;
+                var country = d.countryCode || '';
+                state.location.name = cityName;
+                state.location.country = country;
+                $('currentLocation').textContent = cityName + (country ? ', ' + country : '');
+                $('citySearch').value = cityName;
+                localStorage.setItem('user_last_name', cityName);
+                localStorage.setItem('user_last_country', country);
+              }
+            })
+            .catch(function() {
+              // Gracefully keep 'Current Location'
+            });
+        });
       },
-      function() {
-        // Fallback: Automatic IP Geolocation API
-        fetch('https://ipapi.co/json/')
+      function(err) {
+        console.warn('Browser geolocation denied or timed out:', err);
+        // Fallback: Automatic IP-based Geolocation lookup
+        fetch('https://api.bigdatacloud.net/data/reverse-geocode-client')
           .then(function(r) { return r.json(); })
           .then(function(d) {
-            if (d.latitude && d.longitude) {
-              loadLocationWeather(d.latitude, d.longitude, d.city || 'Your Location', d.country_code);
+            if (d && d.latitude && d.longitude) {
+              var cityName = d.city || d.locality || 'Your Location';
+              loadLocationWeather(d.latitude, d.longitude, cityName, d.countryCode);
             } else {
               loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
             }
@@ -1184,7 +1197,7 @@ function autoDetectLocation() {
             loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
           });
       },
-      { timeout: 5000, maximumAge: 300000 }
+      { timeout: 8000, enableHighAccuracy: true, maximumAge: 60000 }
     );
   } else {
     loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
@@ -1234,7 +1247,7 @@ function initApp() {
     };
   }
 
-  // Initial Load: Load last known location first, then auto-detect fresh location
+  // Load last location instantly, then trigger auto-detection
   loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
   autoDetectLocation();
 }
