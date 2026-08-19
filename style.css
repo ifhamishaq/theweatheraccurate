@@ -170,6 +170,7 @@ body.weather-theme-snow .ambient-background {
   flex-direction: column;
   gap: 1.25rem;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Severe Weather Alert Banner */
@@ -516,11 +517,14 @@ body.weather-theme-snow .ambient-background {
   align-items: start;
   width: 100%;
   max-width: 100%;
+  overflow: hidden;
 }
 
 .grid-col-hero, .grid-col-details {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Hero Stage Card */
@@ -798,6 +802,8 @@ body.weather-theme-snow .ambient-background {
   flex-direction: column;
   gap: 1.25rem;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .glass-panel {
@@ -809,6 +815,7 @@ body.weather-theme-snow .ambient-background {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 100%;
+  overflow: hidden;
 }
 
 .panel-title {
@@ -866,6 +873,7 @@ body.weather-theme-snow .ambient-background {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.85rem;
   width: 100%;
+  overflow: hidden;
 }
 
 .detail-tile-card {
@@ -878,6 +886,7 @@ body.weather-theme-snow .ambient-background {
   flex-direction: column;
   justify-content: space-between;
   width: 100%;
+  overflow: hidden;
 }
 
 .tile-header {
@@ -979,9 +988,9 @@ body.weather-theme-snow .ambient-background {
 
 .d-day-name { font-weight: 600; }
 .d-icon-box { width: 26px; height: 26px; }
-.d-bar-container { height: 5px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; position: relative; overflow: hidden; }
-.d-bar-fill-gradient { position: absolute; height: 100%; background: linear-gradient(90deg, var(--accent-primary), #f59e0b); border-radius: 3px; }
-.d-high-low { font-family: var(--font-display); font-weight: 600; text-align: right; font-size: 0.88rem; }
+.d-bar-container { height: 5px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; position: relative; overflow: hidden; width: 100%; }
+.d-bar-fill-gradient { position: absolute; height: 100%; background: linear-gradient(90deg, var(--accent-primary), #f59e0b); border-radius: 3px; max-width: 100%; }
+.d-high-low { font-family: var(--font-display); font-weight: 600; text-align: right; font-size: 0.88rem; white-space: nowrap; }
 
 /* Chart Panel & Metric Tabs */
 .chart-header-row {
@@ -1022,7 +1031,7 @@ body.weather-theme-snow .ambient-background {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.chart-canvas-box { height: 160px; position: relative; width: 100%; }
+.chart-canvas-box { height: 160px; position: relative; width: 100%; overflow: hidden; }
 
 /* Footer */
 .app-footer {

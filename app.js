@@ -641,6 +641,8 @@ function renderDailyForecast(daily) {
 
     var leftPct = ((min - globalMin) / totalRange) * 100;
     var widthPct = Math.max(15, ((max - min) / totalRange) * 100);
+    // Clamp so bar never overflows container
+    if (leftPct + widthPct > 100) widthPct = 100 - leftPct;
 
     var wrap = document.createElement('div');
     wrap.className = 'daily-item-container';
