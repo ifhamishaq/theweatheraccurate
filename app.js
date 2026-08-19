@@ -14,6 +14,7 @@ var state = {
   weather: null,
   aqi: null,
   chart: null,
+  historyChart: null,
   activeMetric: 'temp',
   expandedDayIndex: -1,
   savedCities: JSON.parse(localStorage.getItem('saved_weather_cities') || '[]'),
@@ -24,6 +25,75 @@ var state = {
 // Performance: detect mobile for reduced rendering
 var isMobileDevice = window.innerWidth <= 768;
 window.addEventListener('resize', function() { isMobileDevice = window.innerWidth <= 768; });
+
+// === PERFORMANCE UTILITIES ===
+var weatherCache = {};
+var CACHE_TTL = 10 * 60 * 1000;
+
+function debounce(fn, ms) {
+  var timer;
+  return function() {
+    var args = arguments; var ctx = this;
+    clearTimeout(timer);
+    timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+  };
+}
+
+// Toast notification system
+function showToast(msg, type) {
+  var container = document.getElementById('toastContainer');
+  if (!container) return;
+  var toast = document.createElement('div');
+  toast.className = 'toast-item toast-' + (type || 'info');
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(function() { toast.classList.add('toast-visible'); }, 20);
+  setTimeout(function() {
+    toast.classList.remove('toast-visible');
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 350);
+  }, 3200);
+}
+
+// Haptic feedback
+function haptic(style) {
+  try { if (navigator.vibrate) navigator.vibrate(style === 'heavy' ? 30 : 10); } catch(e) {}
+}
+
+// Last updated tracking
+var lastFetchTime = null;
+function updateLastUpdated() {
+  lastFetchTime = Date.now();
+  var badge = document.getElementById('lastUpdatedBadge');
+  if (badge) badge.textContent = 'Updated just now';
+}
+setInterval(function() {
+  if (!lastFetchTime) return;
+  var badge = document.getElementById('lastUpdatedBadge');
+  if (!badge) return;
+  var mins = Math.floor((Date.now() - lastFetchTime) / 60000);
+  badge.textContent = mins < 1 ? 'Updated just now' : 'Updated ' + mins + ' min ago';
+}, 60000);
+
+// Error state
+function showErrorState(msg) {
+  var el = document.getElementById('errorState');
+  if (el) { el.querySelector('.error-msg').textContent = msg || 'Unable to load weather data'; el.classList.remove('hidden'); }
+}
+function hideErrorState() {
+  var el = document.getElementById('errorState');
+  if (el) el.classList.add('hidden');
+}
+
+// === INTERNATIONALIZATION ===
+var currentLang = localStorage.getItem('weather_lang') || 'en';
+var i18nStrings = {
+  en: { clear: 'Clear Sky', humidity: 'Humidity', wind: 'Wind', feelsLike: 'Feels Like', updated: 'Updated just now', sunrise: 'Sunrise', sunset: 'Sunset', searchPlaceholder: 'Search city or location...', rainChance: 'Rain Chance Next 12h', moonPhase: 'MOON PHASE', pollen: 'POLLEN INDEX', airQuality: 'Air Quality Breakdown', history: '7-Day Temperature History', yourCities: 'Your Cities at a Glance' },
+  ur: { clear: '\u0635\u0627\u0641 \u0622\u0633\u0645\u0627\u0646', humidity: '\u0646\u0645\u06cc', wind: '\u06c1\u0648\u0627', feelsLike: '\u0645\u062d\u0633\u0648\u0633', updated: '\u0627\u0628\u06be\u06cc \u0627\u067e\u0688\u06cc\u0679', sunrise: '\u0637\u0644\u0648\u0639', sunset: '\u063a\u0631\u0648\u0628', searchPlaceholder: '\u0634\u06c1\u0631 \u062a\u0644\u0627\u0634 \u06a9\u0631\u06cc\u06ba...', rainChance: '\u0628\u0627\u0631\u0634 \u06a9\u0627 \u0627\u0645\u06a9\u0627\u0646', moonPhase: '\u0686\u0627\u0646\u062f \u06a9\u06cc \u062d\u0627\u0644\u062a', pollen: '\u067e\u0631\u0627\u06af\u0646\u062f\u06c1', airQuality: '\u0641\u0636\u0627\u0626\u06cc \u0645\u0639\u06cc\u0627\u0631', history: '\u062a\u0627\u0631\u06cc\u062e\u06cc \u062f\u0631\u062c\u06c1 \u062d\u0631\u0627\u0631\u062a', yourCities: '\u0622\u067e \u06a9\u06d2 \u0634\u06c1\u0631' },
+  ar: { clear: '\u0633\u0645\u0627\u0621 \u0635\u0627\u0641\u064a\u0629', humidity: '\u0631\u0637\u0648\u0628\u0629', wind: '\u0631\u064a\u0627\u062d', feelsLike: '\u064a\u0628\u062f\u0648', updated: '\u062a\u0645 \u0627\u0644\u062a\u062d\u062f\u064a\u062b', sunrise: '\u0634\u0631\u0648\u0642', sunset: '\u063a\u0631\u0648\u0628', searchPlaceholder: '\u0628\u062d\u062b \u0639\u0646 \u0645\u062f\u064a\u0646\u0629...', rainChance: '\u0641\u0631\u0635\u0629 \u0645\u0637\u0631', moonPhase: '\u0637\u0648\u0631 \u0627\u0644\u0642\u0645\u0631', pollen: '\u062d\u0628\u0648\u0628 \u0627\u0644\u0644\u0642\u0627\u062d', airQuality: '\u062c\u0648\u062f\u0629 \u0627\u0644\u0647\u0648\u0627\u0621', history: '\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062d\u0631\u0627\u0631\u0629', yourCities: '\u0645\u062f\u0646\u0643' },
+  tr: { clear: 'A\u00e7\u0131k', humidity: 'Nem', wind: 'R\u00fczgar', feelsLike: 'Hissedilen', updated: 'G\u00fcncellendi', sunrise: 'G\u00fcne\u015f do\u011fu\u015fu', sunset: 'G\u00fcne\u015f bat\u0131\u015f\u0131', searchPlaceholder: '\u015eehir ara...', rainChance: 'Ya\u011fmur \u015fans\u0131', moonPhase: 'AY EVRE', pollen: 'POLEN', airQuality: 'Hava Kalitesi', history: 'S\u0131cakl\u0131k Ge\u00e7mi\u015fi', yourCities: '\u015eehirleriniz' },
+  de: { clear: 'Klarer Himmel', humidity: 'Feuchtigkeit', wind: 'Wind', feelsLike: 'Gef\u00fchlt', updated: 'Aktualisiert', sunrise: 'Sonnenaufgang', sunset: 'Sonnenuntergang', searchPlaceholder: 'Stadt suchen...', rainChance: 'Regenwahrscheinlichkeit', moonPhase: 'MONDPHASE', pollen: 'POLLEN', airQuality: 'Luftqualit\u00e4t', history: 'Temperaturverlauf', yourCities: 'Ihre St\u00e4dte' }
+};
+function t(key) { return (i18nStrings[currentLang] && i18nStrings[currentLang][key]) || (i18nStrings.en[key]) || key; }
 
 var WEATHER_CODES = {
   0: { description: 'Clear Sky', theme: 'sunny', isClear: true },
@@ -281,14 +351,22 @@ function applyWeatherTheme(code, solarPhase) {
 }
 
 function fetchWeatherData(lat, lon) {
-  var weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,weather_code,visibility,uv_index,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&past_days=1&timezone=auto';
-  var aqiUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi';
+  var cacheKey = lat.toFixed(2) + ',' + lon.toFixed(2);
+  var cached = weatherCache[cacheKey];
+  if (cached && (Date.now() - cached.time < CACHE_TTL)) {
+    return Promise.resolve(cached.data);
+  }
+
+  var weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,weather_code,visibility,uv_index,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&past_days=1&forecast_days=8&timezone=auto';
+  var aqiUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone';
 
   return Promise.all([
     fetch(weatherUrl).then(function(r) { return r.json(); }),
     fetch(aqiUrl).then(function(r) { return r.json(); }).catch(function() { return null; })
   ]).then(function(results) {
-    return { weather: results[0], aqi: results[1] };
+    var data = { weather: results[0], aqi: results[1] };
+    weatherCache[cacheKey] = { data: data, time: Date.now() };
+    return data;
   });
 }
 
@@ -582,6 +660,13 @@ function renderDashboard() {
   renderDailyForecast(daily);
   renderChart(hourly);
   renderSavedCities();
+
+  // New features
+  renderRainTimeline(hourly);
+  renderMoonPhase();
+  renderSunsetCountdown(sunriseStr, sunsetStr);
+  renderWeatherHistory(daily);
+  initDynamicWallpaper(current.weather_code);
 }
 
 // Lightweight mini weather icon for performance on mobile hourly strips
@@ -988,12 +1073,33 @@ function loadLocationWeather(lat, lon, name, country) {
   var input = $('citySearch');
   if (input) input.value = name || 'Pristina';
 
+  // Show loading state
+  document.body.classList.add('loading');
+  hideErrorState();
+  var pullIndicator = $('pullRefreshIndicator');
+  if (pullIndicator) pullIndicator.classList.remove('hidden');
+
   return fetchWeatherData(lat, lon).then(function(res) {
     state.weather = res.weather;
     state.aqi = res.aqi;
     renderDashboard();
+    updateLastUpdated();
+    haptic('light');
+
+    // Hide loading
+    document.body.classList.remove('loading');
+    if (pullIndicator) pullIndicator.classList.add('hidden');
+
+    // Fetch supplementary data
+    fetchPollenData(lat, lon);
+    fetchAQIBreakdown(lat, lon);
+    renderMultiCityDashboard();
   }).catch(function(err) {
     console.error('Error fetching weather data:', err);
+    document.body.classList.remove('loading');
+    if (pullIndicator) pullIndicator.classList.add('hidden');
+    showErrorState('Failed to load weather for ' + (name || 'this location') + '. Check your connection.');
+    showToast('Connection error', 'error');
   });
 }
 
@@ -1220,12 +1326,355 @@ function autoDetectLocation() {
   }
 }
 
+// === NEW FEATURES ===
+
+// F1: Precipitation Timeline
+function renderRainTimeline(hourly) {
+  var container = $('rainTimeline');
+  if (!container || !hourly || !hourly.precipitation_probability) return;
+  container.innerHTML = '';
+  var nowHour = new Date().getHours();
+  var next12 = hourly.precipitation_probability.slice(nowHour, nowHour + 12);
+  next12.forEach(function(pct, i) {
+    var bar = document.createElement('div');
+    bar.className = 'rain-bar-segment';
+    bar.style.height = Math.max(10, pct) + '%';
+    bar.setAttribute('data-pct', pct + '%');
+    bar.title = new Date(hourly.time[nowHour + i]).toLocaleTimeString('en-US', { hour: 'numeric' }) + ': ' + pct + '%';
+    if (pct > 60) bar.style.background = 'linear-gradient(to top, rgba(56,189,248,0.4), rgba(56,189,248,0.9))';
+    container.appendChild(bar);
+  });
+}
+
+// F2: AQI Breakdown
+function fetchAQIBreakdown(lat, lon) {
+  var url = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone';
+  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+    if (d && d.current) renderAQIBreakdown(d.current);
+  }).catch(function() {});
+}
+function renderAQIBreakdown(data) {
+  var grid = $('aqiBreakdownGrid');
+  var badge = $('aqiOverallBadge');
+  if (!grid) return;
+  var aqi = data.us_aqi || 0;
+  if (badge) badge.textContent = aqi <= 50 ? 'Good' : aqi <= 100 ? 'Moderate' : aqi <= 150 ? 'Unhealthy (Sensitive)' : 'Unhealthy';
+  var metrics = [
+    { label: 'PM2.5', val: data.pm2_5, max: 75, color: '#38bdf8' },
+    { label: 'PM10', val: data.pm10, max: 150, color: '#818cf8' },
+    { label: 'NO\u2082', val: data.nitrogen_dioxide, max: 200, color: '#f59e0b' },
+    { label: 'O\u2083', val: data.ozone, max: 180, color: '#34d399' }
+  ];
+  grid.innerHTML = metrics.map(function(m) {
+    var pct = Math.min(100, ((m.val || 0) / m.max) * 100);
+    return '<div class="aqi-metric-item">' +
+      '<div class="aqi-metric-val" style="color:' + m.color + '">' + Math.round(m.val || 0) + '</div>' +
+      '<div class="aqi-metric-label">' + m.label + '</div>' +
+      '<div class="aqi-metric-bar"><div class="aqi-metric-bar-fill" style="width:' + pct + '%;background:' + m.color + '"></div></div>' +
+      '</div>';
+  }).join('');
+}
+
+// F3: Moon Phase Calculator
+function getMoonPhase(date) {
+  var year = date.getFullYear();
+  var month = date.getMonth() + 1;
+  var day = date.getDate();
+  if (month < 3) { year--; month += 12; }
+  var A = Math.floor(year / 100);
+  var B = Math.floor(A / 4);
+  var C = 2 - A + B;
+  var E = Math.floor(365.25 * (year + 4716));
+  var F = Math.floor(30.6001 * (month + 1));
+  var JD = C + day + E + F - 1524.5;
+  var daysSinceNew = JD - 2451549.5;
+  var newMoons = daysSinceNew / 29.53059;
+  var phase = newMoons - Math.floor(newMoons);
+  return phase;
+}
+function renderMoonPhase() {
+  var phase = getMoonPhase(new Date());
+  var illumination = Math.round(Math.abs(phase - 0.5) * 200);
+  if (phase > 0.5) illumination = 100 - Math.round((phase - 0.5) * 200);
+  else illumination = Math.round(phase * 200);
+  
+  var name = 'New Moon';
+  if (phase < 0.03 || phase > 0.97) name = 'New Moon';
+  else if (phase < 0.22) name = 'Waxing Crescent';
+  else if (phase < 0.28) name = 'First Quarter';
+  else if (phase < 0.47) name = 'Waxing Gibbous';
+  else if (phase < 0.53) name = 'Full Moon';
+  else if (phase < 0.72) name = 'Waning Gibbous';
+  else if (phase < 0.78) name = 'Last Quarter';
+  else name = 'Waning Crescent';
+  
+  var nameEl = $('moonPhaseName');
+  var illumEl = $('moonIllumination');
+  var svgEl = $('moonPhaseSVG');
+  if (nameEl) nameEl.textContent = name;
+  if (illumEl) illumEl.textContent = illumination + '% illuminated';
+  if (svgEl) {
+    var moonColor = illumination > 50 ? '#e2e8f0' : '#94a3b8';
+    var shadowX = phase < 0.5 ? (1 - phase * 4) * 20 : ((phase - 0.5) * 4 - 1) * 20;
+    svgEl.innerHTML = '<svg viewBox="0 0 44 44" width="44" height="44">' +
+      '<circle cx="22" cy="22" r="18" fill="' + moonColor + '" filter="drop-shadow(0 0 8px rgba(226,232,240,0.5))"/>' +
+      '<circle cx="' + (22 + shadowX) + '" cy="22" r="18" fill="#0f172a"/>' +
+      '</svg>';
+  }
+}
+
+// F4: Share Weather Card as Image
+function shareWeatherCard() {
+  var card = $('mainCard');
+  if (!card) return;
+  showToast('Generating image...', 'info');
+  if (typeof html2canvas === 'undefined') {
+    showToast('Share feature loading...', 'info');
+    return;
+  }
+  html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true }).then(function(canvas) {
+    canvas.toBlob(function(blob) {
+      if (navigator.share && navigator.canShare) {
+        var file = new File([blob], 'weather.png', { type: 'image/png' });
+        navigator.share({ title: 'Weather - ' + state.location.name, files: [file] }).catch(function() {
+          downloadBlob(blob);
+        });
+      } else {
+        downloadBlob(blob);
+      }
+      showToast('Weather card exported!', 'success');
+    });
+  }).catch(function() {
+    showToast('Failed to generate image', 'error');
+  });
+}
+function downloadBlob(blob) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'weather-' + state.location.name.toLowerCase().replace(/\s+/g, '-') + '.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// F5: Dynamic Weather Particles
+function initDynamicWallpaper(code) {
+  document.body.classList.remove('weather-particles-rain', 'weather-particles-snow');
+  var info = WEATHER_CODES[code] || { theme: 'sunny' };
+  if (info.theme === 'drizzle') document.body.classList.add('weather-particles-rain');
+  if (info.theme === 'snow') document.body.classList.add('weather-particles-snow');
+}
+
+// F6: Multi-City Dashboard
+function renderMultiCityDashboard() {
+  var panel = $('multiCityPanel');
+  var grid = $('multiCityGrid');
+  if (!panel || !grid || state.savedCities.length === 0) {
+    if (panel) panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  grid.innerHTML = '';
+  
+  state.savedCities.forEach(function(city) {
+    var card = document.createElement('div');
+    card.className = 'mini-city-card';
+    card.innerHTML = '<div class="mini-city-name">' + city.name + '</div>' +
+      '<div class="mini-city-temp">--°</div>' +
+      '<div class="mini-city-desc">Loading...</div>';
+    card.onclick = function() { loadLocationWeather(city.lat, city.lon, city.name, city.country); haptic('light'); };
+    grid.appendChild(card);
+    
+    // Fetch temp for this city
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + city.lat + '&longitude=' + city.lon + '&current=temperature_2m,weather_code&timezone=auto';
+    fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+      if (d && d.current) {
+        card.querySelector('.mini-city-temp').textContent = formatTemp(d.current.temperature_2m) + '°';
+        var desc = WEATHER_CODES[d.current.weather_code] || { description: 'Clear' };
+        card.querySelector('.mini-city-desc').textContent = desc.description;
+      }
+    }).catch(function() {});
+  });
+}
+
+// F7: Pollen Index
+function fetchPollenData(lat, lon) {
+  var url = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=birch_pollen,grass_pollen,ragweed_pollen';
+  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+    if (d && d.current) {
+      var total = (d.current.grass_pollen || 0) + (d.current.birch_pollen || 0) + (d.current.ragweed_pollen || 0);
+      var cat = 'Low';
+      if (total > 50) cat = 'Moderate';
+      if (total > 150) cat = 'High';
+      if (total > 300) cat = 'Very High';
+      var valEl = $('pollenValue');
+      var catEl = $('pollenCategory');
+      var progEl = $('pollenProgress');
+      if (valEl) valEl.textContent = Math.round(total);
+      if (catEl) catEl.textContent = cat;
+      if (progEl) progEl.style.width = Math.min(100, (total / 400) * 100) + '%';
+    }
+  }).catch(function() {});
+}
+
+// F8: Weather History Graph
+function renderWeatherHistory(daily) {
+  var canvas = $('historyChart');
+  if (!canvas || !daily || !daily.temperature_2m_max) return;
+  if (typeof Chart === 'undefined') return;
+  
+  var labels = daily.time.map(function(t) {
+    return new Date(t + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+  });
+  var maxTemps = daily.temperature_2m_max.map(function(t) { return Math.round(convertTemp(t)); });
+  var minTemps = daily.temperature_2m_min.map(function(t) { return Math.round(convertTemp(t)); });
+  
+  if (state.historyChart) state.historyChart.destroy();
+  var ctx = canvas.getContext('2d');
+  state.historyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'High', data: maxTemps, borderColor: '#f59e0b', borderWidth: 2, tension: 0.4, fill: false, pointRadius: 3, pointBackgroundColor: '#f59e0b' },
+        { label: 'Low', data: minTemps, borderColor: '#38bdf8', borderWidth: 2, tension: 0.4, fill: false, pointRadius: 3, pointBackgroundColor: '#38bdf8' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top', labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'Plus Jakarta Sans', size: 11 }, boxWidth: 12, padding: 8 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { family: 'Plus Jakarta Sans', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: 'rgba(255,255,255,0.6)', font: { family: 'Plus Jakarta Sans', size: 10 } } }
+      }
+    }
+  });
+}
+
+// F9: Sunrise/Sunset Countdown
+var sunsetCountdownInterval = null;
+function renderSunsetCountdown(sunriseStr, sunsetStr) {
+  clearInterval(sunsetCountdownInterval);
+  var el = $('sunsetCountdown');
+  if (!el || !sunriseStr || !sunsetStr) return;
+  
+  function update() {
+    var now = new Date();
+    var sunrise = new Date(sunriseStr);
+    var sunset = new Date(sunsetStr);
+    var target, label;
+    
+    if (now < sunrise) {
+      target = sunrise; label = '\u2600\ufe0f Sunrise in ';
+    } else if (now < sunset) {
+      target = sunset; label = '\ud83c\udf05 Sunset in ';
+    } else {
+      el.textContent = '\ud83c\udf19 Night time';
+      return;
+    }
+    
+    var diff = target - now;
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    el.textContent = label + (h > 0 ? h + 'h ' : '') + m + 'm ' + s + 's';
+  }
+  
+  update();
+  sunsetCountdownInterval = setInterval(update, 1000);
+}
+
+// U1: Pull-to-Refresh
+function setupPullToRefresh() {
+  var startY = 0;
+  var pulling = false;
+  document.addEventListener('touchstart', function(e) {
+    if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e) {
+    if (!pulling) return;
+    var diff = e.touches[0].clientY - startY;
+    if (diff > 80 && window.scrollY === 0) {
+      pulling = false;
+      haptic('heavy');
+      showToast('Refreshing...', 'info');
+      loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
+    }
+  }, { passive: true });
+  document.addEventListener('touchend', function() { pulling = false; }, { passive: true });
+}
+
+// U4: Swipe Between Saved Cities
+function setupSwipeGestures() {
+  var heroCol = document.querySelector('.grid-col-hero');
+  if (!heroCol) return;
+  var swipeStartX = 0;
+  heroCol.addEventListener('touchstart', function(e) {
+    swipeStartX = e.touches[0].clientX;
+  }, { passive: true });
+  heroCol.addEventListener('touchend', function(e) {
+    var diff = e.changedTouches[0].clientX - swipeStartX;
+    if (Math.abs(diff) < 60) return;
+    var allCities = state.savedCities.slice();
+    if (allCities.length < 2) return;
+    var currentIdx = allCities.findIndex(function(c) { return c.name === state.location.name; });
+    if (currentIdx < 0) return;
+    var nextIdx;
+    if (diff < 0) { nextIdx = (currentIdx + 1) % allCities.length; }
+    else { nextIdx = (currentIdx - 1 + allCities.length) % allCities.length; }
+    var next = allCities[nextIdx];
+    haptic('light');
+    showToast(next.name, 'info');
+    loadLocationWeather(next.lat, next.lon, next.name, next.country);
+  }, { passive: true });
+}
+
+// U6: Theme Toggle
+function setupThemeToggle() {
+  var btn = $('themeToggleBtn');
+  var icon = $('themeIcon');
+  var savedTheme = localStorage.getItem('weather_theme_mode');
+  if (savedTheme === 'light') document.body.classList.add('light-theme');
+  
+  if (btn) {
+    btn.onclick = function() {
+      document.body.classList.toggle('light-theme');
+      var isLight = document.body.classList.contains('light-theme');
+      localStorage.setItem('weather_theme_mode', isLight ? 'light' : 'dark');
+      if (icon) icon.innerHTML = isLight
+        ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'
+        : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+      haptic('light');
+      showToast(isLight ? 'Light mode' : 'Dark mode', 'info');
+    };
+  }
+}
+
+// F10: Language Selector
+function setupLanguageSelector() {
+  var select = $('langSelect');
+  if (!select) return;
+  select.value = currentLang;
+  select.onchange = function() {
+    currentLang = select.value;
+    localStorage.setItem('weather_lang', currentLang);
+    showToast('Language: ' + select.options[select.selectedIndex].text, 'info');
+    if (state.weather) renderDashboard();
+  };
+}
+
 function initApp() {
   setupSearch();
   setupPresets();
   setupUnits();
   setupAccentPicker();
   setupMetricTabs();
+  setupThemeToggle();
+  setupLanguageSelector();
+  setupPullToRefresh();
+  setupSwipeGestures();
 
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = function() {
@@ -1237,6 +1686,8 @@ function initApp() {
   if (geoBtn) {
     geoBtn.onclick = function(e) {
       e.preventDefault();
+      haptic('light');
+      showToast('Detecting location...', 'info');
       autoDetectLocation();
     };
   }
@@ -1244,6 +1695,7 @@ function initApp() {
   var voiceBtn = $('speakBriefingBtn');
   if (voiceBtn) {
     voiceBtn.onclick = function() {
+      haptic('light');
       speakWeatherBriefing();
     };
   }
@@ -1251,7 +1703,17 @@ function initApp() {
   var bookmarkBtn = $('bookmarkCityBtn');
   if (bookmarkBtn) {
     bookmarkBtn.onclick = function() {
+      haptic('light');
       toggleBookmarkCity();
+      showToast(state.savedCities.some(function(c) { return c.name === state.location.name; }) ? 'City saved!' : 'City removed', 'success');
+    };
+  }
+
+  var shareBtn = $('shareWeatherBtn');
+  if (shareBtn) {
+    shareBtn.onclick = function() {
+      haptic('light');
+      shareWeatherCard();
     };
   }
 
@@ -1263,9 +1725,21 @@ function initApp() {
     };
   }
 
-  // Load last location instantly, then trigger auto-detection
-  loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
-  autoDetectLocation();
+  var retryBtn = $('retryBtn');
+  if (retryBtn) {
+    retryBtn.onclick = function() {
+      hideErrorState();
+      loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
+    };
+  }
+
+  // Single smart startup: load from last location, then try auto-detect
+  loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country).then(function() {
+    // Only auto-detect if we're still on the default (Pristina) or if no saved location
+    if (!localStorage.getItem('user_last_lat')) {
+      autoDetectLocation();
+    }
+  });
 }
 
 if (document.readyState === 'loading') {

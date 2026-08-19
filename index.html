@@ -14,19 +14,38 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <!-- API Preconnects -->
+  <link rel="preconnect" href="https://api.open-meteo.com">
+  <link rel="preconnect" href="https://air-quality-api.open-meteo.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌤️</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="weather-theme-sunny accent-cyan">
+<body class="weather-theme-sunny accent-cyan loading">
 
   <!-- Shape Morphing Ambient Background Layer -->
   <div class="ambient-background" aria-hidden="true">
     <div class="morph-blob blob-1"></div>
     <div class="morph-blob blob-2"></div>
     <div class="morph-blob blob-3"></div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Error State Overlay -->
+  <div id="errorState" class="error-state-overlay hidden">
+    <div class="error-state-card">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      <p class="error-msg">Unable to load weather data</p>
+      <button id="retryBtn" type="button" class="btn-retry">Retry</button>
+    </div>
+  </div>
+
+  <!-- Pull-to-Refresh Indicator -->
+  <div id="pullRefreshIndicator" class="pull-refresh-indicator hidden">
+    <div class="pull-refresh-spinner"></div>
   </div>
 
   <!-- Full Viewport Container -->
@@ -68,6 +87,18 @@
           <button type="button" class="accent-dot dot-gold" data-accent="gold" title="Sunset Gold"></button>
           <button type="button" class="accent-dot dot-emerald" data-accent="emerald" title="Emerald Aurora"></button>
         </div>
+
+        <button id="themeToggleBtn" type="button" class="btn-theme-toggle" title="Toggle Light/Dark Mode">
+          <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <select id="langSelect" class="lang-select" title="Language">
+          <option value="en">EN</option>
+          <option value="ur">اردو</option>
+          <option value="ar">عربي</option>
+          <option value="tr">TR</option>
+          <option value="de">DE</option>
+        </select>
 
         <button id="speakBriefingBtn" type="button" class="btn-voice-briefing" title="Read Weather Briefing Out Loud">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
@@ -130,6 +161,9 @@
             <button id="bookmarkCityBtn" type="button" class="btn-bookmark" title="Save City to Favorites">
               <svg id="starIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </button>
+            <button id="shareWeatherBtn" type="button" class="btn-share" title="Share Weather Card">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+            </button>
           </div>
 
           <div class="hero-card-inner">
@@ -149,6 +183,7 @@
               <div id="conditionText" class="condition-name">Clear</div>
               <div id="currentLocation" class="location-name">Loading...</div>
               <div id="currentTime" class="time-stamp"></div>
+              <div id="lastUpdatedBadge" class="last-updated-badge">Updated just now</div>
 
               <!-- Today vs Yesterday Comparison Badge -->
               <div id="yesterdayComparison" class="comparison-pill-badge">
@@ -179,6 +214,12 @@
           <div class="stage-hourly-wrapper">
             <h3 class="stage-section-title">24-Hour Forecast</h3>
             <div id="hourlyForecast" class="hourly-scroll-strip"></div>
+          </div>
+
+          <!-- Precipitation Timeline -->
+          <div class="rain-timeline-wrapper">
+            <h3 class="stage-section-title">Rain Chance Next 12h</h3>
+            <div id="rainTimeline" class="rain-timeline-bar"></div>
           </div>
         </section>
       </div>
@@ -280,6 +321,18 @@
                 <strong id="sunsetTime" class="time-bold">--:--</strong>
               </div>
             </div>
+            <div id="sunsetCountdown" class="sunset-countdown-badge"></div>
+          </div>
+
+          <!-- Moon Phase & Night Sky Card -->
+          <div class="detail-tile-card glass-panel" id="moonPhaseCard">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+              <span>MOON PHASE</span>
+            </div>
+            <div id="moonPhaseSVG" class="moon-phase-visual"></div>
+            <div id="moonPhaseName" class="tile-main-val" style="font-size:1.1rem;">--</div>
+            <div id="moonIllumination" class="tile-sub-val">--% illuminated</div>
           </div>
 
           <!-- Feels Like & Dew Point Card -->
@@ -302,6 +355,17 @@
               <div><span class="lbl-dim">Pressure</span><div id="pressure" class="val-md">-- hPa</div></div>
               <div><span class="lbl-dim">Visibility</span><div id="visibility" class="val-md">-- km</div></div>
             </div>
+          </div>
+
+          <!-- Pollen & Allergy Card -->
+          <div class="detail-tile-card glass-panel" id="pollenCard">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3e635" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+              <span>POLLEN INDEX</span>
+            </div>
+            <div id="pollenValue" class="tile-main-val">--</div>
+            <div id="pollenCategory" class="tile-sub-val">--</div>
+            <div class="tile-progress-track"><div id="pollenProgress" class="tile-progress-fill pollen"></div></div>
           </div>
 
         </div>
@@ -332,6 +396,29 @@
           </div>
         </div>
 
+        <!-- AQI Breakdown Panel -->
+        <div class="aqi-breakdown-panel glass-panel" id="aqiBreakdownPanel">
+          <div class="panel-header-with-badge">
+            <h3 class="panel-title">Air Quality Breakdown</h3>
+            <span id="aqiOverallBadge" class="lbl-hint">--</span>
+          </div>
+          <div id="aqiBreakdownGrid" class="aqi-breakdown-grid"></div>
+        </div>
+
+        <!-- Multi-City Dashboard -->
+        <div class="multi-city-panel glass-panel" id="multiCityPanel" style="display:none;">
+          <h3 class="panel-title">Your Cities at a Glance</h3>
+          <div id="multiCityGrid" class="multi-city-grid"></div>
+        </div>
+
+        <!-- Weather History Panel -->
+        <div class="chart-panel glass-panel" id="weatherHistoryPanel">
+          <h3 class="panel-title">7-Day Temperature History</h3>
+          <div class="chart-canvas-box">
+            <canvas id="historyChart" height="140"></canvas>
+          </div>
+        </div>
+
       </div>
 
     </main>
@@ -343,6 +430,8 @@
 
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
