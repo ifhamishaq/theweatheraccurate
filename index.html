@@ -2,7 +2,7 @@
 <html lang="en" data-color-scheme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>The Weather Accurate – Developed by Ifham</title>
 
   <!-- PWA Manifest -->
@@ -59,26 +59,6 @@
         </div>
       </div>
 
-      <!-- Center Minimalist Search Bar -->
-      <div class="navbar-center">
-        <form id="searchForm" class="search-form" action="#" onsubmit="return false;">
-          <div class="search-input-pill morph-pill">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input id="citySearch" type="text" class="search-field" placeholder="Search city or location..." autocomplete="off" aria-label="Search city" />
-            <button id="clearSearchBtn" type="button" class="btn-clear" title="Clear">×</button>
-            <button id="geoLocateBtn" type="button" class="btn-locate" title="Use current location">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-              </svg>
-            </button>
-          </div>
-          <div id="searchResults" class="search-dropdown hidden" role="listbox"></div>
-        </form>
-      </div>
-
       <!-- Right Accent Color Selector, Voice & Unit Switcher -->
       <div class="navbar-right">
         <!-- Accent Color Theme Picker -->
@@ -98,6 +78,26 @@
           <button id="unitC" type="button" class="segment-btn active">°C</button>
           <button id="unitF" type="button" class="segment-btn">°F</button>
         </div>
+      </div>
+
+      <!-- Center Minimalist Search Bar -->
+      <div class="navbar-center">
+        <form id="searchForm" class="search-form" action="#" onsubmit="return false;">
+          <div class="search-input-pill morph-pill">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="citySearch" type="text" class="search-field" placeholder="Search city or location..." autocomplete="off" aria-label="Search city" />
+            <button id="clearSearchBtn" type="button" class="btn-clear" title="Clear">×</button>
+            <button id="geoLocateBtn" type="button" class="btn-locate" title="Use current location">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+              </svg>
+            </button>
+          </div>
+          <div id="searchResults" class="search-dropdown hidden" role="listbox"></div>
+        </form>
       </div>
     </header>
 
