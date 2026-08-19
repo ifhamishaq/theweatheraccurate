@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en" data-color-scheme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Weather Accurate – Developed by Ifham</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌤️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="weather-theme-sunny accent-cyan">
+
+  <!-- Shape Morphing Ambient Background Layer -->
+  <div class="ambient-background" aria-hidden="true">
+    <div class="morph-blob blob-1"></div>
+    <div class="morph-blob blob-2"></div>
+    <div class="morph-blob blob-3"></div>
+  </div>
+
+  <!-- Full Viewport Container -->
+  <div class="full-viewport">
+
+    <!-- Severe Weather Alert Banner (Frosted Glassmorphic) -->
+    <div id="alertBanner" class="alert-banner-bar hidden" role="alert">
+      <div class="alert-content">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <span id="alertText">Advisory: High UV Index expected today. Stay hydrated.</span>
+      </div>
+      <button id="dismissAlertBtn" type="button" class="alert-close-btn" title="Dismiss Alert">&times;</button>
+    </div>
+
+    <!-- Minimal Header Bar -->
+    <header class="app-navbar">
+      <div class="navbar-left">
+        <div class="brand-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+          </svg>
+          <span class="brand-text">The Weather Accurate</span>
+          <span class="dev-badge">by Ifham</span>
+        </div>
+      </div>
+
+      <!-- Center Minimalist Search Bar -->
+      <div class="navbar-center">
+        <form id="searchForm" class="search-form" action="#" onsubmit="return false;">
+          <div class="search-input-pill morph-pill">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="citySearch" type="text" class="search-field" placeholder="Search city or location..." autocomplete="off" aria-label="Search city" />
+            <button id="clearSearchBtn" type="button" class="btn-clear" title="Clear">×</button>
+            <button id="geoLocateBtn" type="button" class="btn-locate" title="Use current location">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+              </svg>
+            </button>
+          </div>
+          <div id="searchResults" class="search-dropdown hidden" role="listbox"></div>
+        </form>
+      </div>
+
+      <!-- Right Accent Color Selector, Voice & Unit Switcher -->
+      <div class="navbar-right">
+        <!-- Accent Color Theme Picker -->
+        <div class="accent-picker-group" title="Select Accent Theme">
+          <button type="button" class="accent-dot dot-cyan active" data-accent="cyan" title="Cyan Sky"></button>
+          <button type="button" class="accent-dot dot-violet" data-accent="violet" title="Violet Midnight"></button>
+          <button type="button" class="accent-dot dot-gold" data-accent="gold" title="Sunset Gold"></button>
+          <button type="button" class="accent-dot dot-emerald" data-accent="emerald" title="Emerald Aurora"></button>
+        </div>
+
+        <button id="speakBriefingBtn" type="button" class="btn-voice-briefing" title="Read Weather Briefing Out Loud">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+          <span id="voiceBtnText">Voice</span>
+        </button>
+
+        <div class="unit-toggle-segmented" role="radiogroup" aria-label="Temperature unit">
+          <button id="unitC" type="button" class="segment-btn active">°C</button>
+          <button id="unitF" type="button" class="segment-btn">°F</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Quick Preset Cities Bar -->
+    <div class="quick-cities-row">
+      <span class="quick-label">Saved:</span>
+      <div id="savedCitiesContainer" class="saved-pills-row"></div>
+      <span class="quick-label">Popular:</span>
+      <button type="button" class="preset-pill active" data-city="Pristina" data-lat="42.6629" data-lon="21.1655">Pristina</button>
+      <button type="button" class="preset-pill" data-city="London" data-lat="51.5074" data-lon="-0.1278">London</button>
+      <button type="button" class="preset-pill" data-city="New York" data-lat="40.7128" data-lon="-74.0060">New York</button>
+      <button type="button" class="preset-pill" data-city="Tokyo" data-lat="35.6762" data-lon="139.6503">Tokyo</button>
+      <button type="button" class="preset-pill" data-city="Paris" data-lat="48.8566" data-lon="2.3522">Paris</button>
+      <button type="button" class="preset-pill" data-city="Sydney" data-lat="-33.8688" data-lon="151.2093">Sydney</button>
+      <button type="button" class="preset-pill" data-city="Samoa" data-lat="-13.7590" data-lon="-172.1046">Samoa</button>
+    </div>
+
+    <!-- Main Full-Screen Content Layout Grid -->
+    <main class="full-content-grid">
+
+      <!-- Left Column: Hero Weather Stage Card -->
+      <div class="grid-col-hero">
+        <section id="mainCard" class="hero-stage-card card-theme-sunny">
+          
+          <!-- Shape Morphing Glow Backdrop -->
+          <div class="card-morph-glow" aria-hidden="true"></div>
+
+          <!-- Hero Action Controls (Star Bookmark) -->
+          <div class="hero-top-actions">
+            <button id="bookmarkCityBtn" type="button" class="btn-bookmark" title="Save City to Favorites">
+              <svg id="starIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            </button>
+          </div>
+
+          <div class="hero-card-inner">
+            
+            <!-- Frosted Glassmorphic 3D Weather Mascot Artwork -->
+            <div class="hero-artwork-box">
+              <div id="hero3DArtwork" class="artwork-3d-wrapper">
+                <!-- SVG Frosted Glass Mascot -->
+              </div>
+            </div>
+
+            <!-- Temperature & Meta -->
+            <div class="hero-data-box">
+              <div class="temp-readout-main">
+                <span id="currentTemp" class="temp-val">--</span><span class="temp-unit-symbol">°C</span>
+              </div>
+              <div id="conditionText" class="condition-name">Clear</div>
+              <div id="currentLocation" class="location-name">Loading...</div>
+              <div id="currentTime" class="time-stamp"></div>
+
+              <!-- Today vs Yesterday Comparison Badge -->
+              <div id="yesterdayComparison" class="comparison-pill-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                <span id="comparisonText">Comparing vs yesterday...</span>
+              </div>
+
+              <!-- Quick Badges -->
+              <div class="inline-badges-row">
+                <div class="minimal-badge">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                  <span id="badgeHumidity">--% Humidity</span>
+                </div>
+                <div class="minimal-badge">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path></svg>
+                  <span id="badgeWind">-- km/h Wind</span>
+                </div>
+                <div class="minimal-badge">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42m12.72-12.72l1.42-1.42"></path></svg>
+                  <span id="badgeHighLow">H: --° / L: --°</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Hourly Carousel Strip Inside Stage Card -->
+          <div class="stage-hourly-wrapper">
+            <h3 class="stage-section-title">24-Hour Forecast</h3>
+            <div id="hourlyForecast" class="hourly-scroll-strip"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Column: Rich Detailed Metrics Dashboard Grid -->
+      <div class="grid-col-details">
+
+        <!-- Smart Clothing & Activity Recommendation Assistant Tile -->
+        <div class="smart-advice-tile glass-panel">
+          <div class="tile-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 0-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path></svg>
+            <span>SMART OUTDOOR & CLOTHING ASSISTANT</span>
+          </div>
+          <div class="advice-content-row">
+            <div id="adviceIcon" class="advice-emoji-badge">🏃</div>
+            <div class="advice-texts">
+              <strong id="adviceHeadline" class="advice-headline">Great conditions for outdoor activities</strong>
+              <p id="adviceBody" class="advice-body">Comfortable temperatures expected. Wear light breathable layers.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Detailed Metrics Tiles Suite -->
+        <div class="metrics-tiles-grid">
+
+          <!-- UV Index Card -->
+          <div class="detail-tile-card glass-panel">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line></svg>
+              <span>UV INDEX</span>
+            </div>
+            <div id="uvValue" class="tile-main-val">--</div>
+            <div id="uvCategory" class="tile-sub-val">--</div>
+            <div class="tile-progress-track"><div id="uvProgress" class="tile-progress-fill uv"></div></div>
+          </div>
+
+          <!-- Air Quality (AQI) Card -->
+          <div class="detail-tile-card glass-panel">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+              <span>AIR QUALITY (AQI)</span>
+            </div>
+            <div id="aqiValue" class="tile-main-val">--</div>
+            <div id="aqiCategory" class="tile-sub-val">--</div>
+            <div class="tile-progress-track"><div id="aqiProgress" class="tile-progress-fill aqi"></div></div>
+          </div>
+
+          <!-- Wind & Compass Card (With Particle Animation) -->
+          <div class="detail-tile-card glass-panel">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path></svg>
+              <span>WIND COMPASS</span>
+            </div>
+            <div class="compass-tile-body">
+              <div>
+                <div id="windSpeed" class="tile-main-val">--</div>
+                <div id="windDirText" class="tile-sub-val">--</div>
+              </div>
+              <div class="compass-svg-box">
+                <svg viewBox="0 0 100 100" width="56" height="56">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+                  <text x="50" y="16" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">N</text>
+                  <!-- Wind Particle Wave Lines -->
+                  <g class="wind-particles-group" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.5" stroke-linecap="round">
+                    <line class="wind-p1" x1="20" y1="35" x2="40" y2="35"/>
+                    <line class="wind-p2" x1="60" y1="65" x2="80" y2="65"/>
+                  </g>
+                  <g id="compassNeedle" style="transform-origin: 50px 50px; transition: transform 0.8s ease;">
+                    <polygon points="50,22 44,50 56,50" fill="#f43f5e"/>
+                    <polygon points="50,78 44,50 56,50" fill="rgba(255,255,255,0.5)"/>
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Solar Position & Sky Arc Card (Interactive Visualizer) -->
+          <div class="detail-tile-card glass-panel">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2"></path></svg>
+              <span>SOLAR SKY ARC</span>
+            </div>
+            
+            <!-- SVG Solar Arc Graphic -->
+            <div class="solar-arc-box">
+              <svg viewBox="0 0 140 65" width="100%" height="60">
+                <path d="M 10 55 A 60 60 0 0 1 130 55" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-dasharray="4,4"/>
+                <circle id="solarSunNode" cx="70" cy="15" r="7" fill="#fbbf24" filter="drop-shadow(0 0 6px rgba(251,191,36,0.8))"/>
+              </svg>
+            </div>
+
+            <div class="sun-times-row">
+              <div>
+                <span class="lbl-dim">Sunrise</span>
+                <strong id="sunriseTime" class="time-bold">--:--</strong>
+              </div>
+              <div>
+                <span class="lbl-dim">Sunset</span>
+                <strong id="sunsetTime" class="time-bold">--:--</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feels Like & Dew Point Card -->
+          <div class="detail-tile-card glass-panel">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+              <span>FEELS LIKE & DEW POINT</span>
+            </div>
+            <div id="feelsLike" class="tile-main-val">--°</div>
+            <div id="dewPoint" class="tile-sub-val">Dew point is --°</div>
+          </div>
+
+          <!-- Pressure & Visibility Card -->
+          <div class="detail-tile-card glass-panel">
+            <div class="tile-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+              <span>PRESSURE & VISIBILITY</span>
+            </div>
+            <div class="twin-vals">
+              <div><span class="lbl-dim">Pressure</span><div id="pressure" class="val-md">-- hPa</div></div>
+              <div><span class="lbl-dim">Visibility</span><div id="visibility" class="val-md">-- km</div></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 7-Day Extended Forecast Panel (Expandable Daily Rows) -->
+        <div class="daily-forecast-panel glass-panel">
+          <div class="panel-header-with-badge">
+            <h3 class="panel-title">7-Day Forecast</h3>
+            <span class="lbl-hint">Click row to expand</span>
+          </div>
+          <div id="dailyForecast" class="daily-list-wrapper"></div>
+        </div>
+
+        <!-- Multi-Metric Interactive Chart Panel -->
+        <div class="chart-panel glass-panel">
+          <div class="chart-header-row">
+            <h3 class="panel-title">24-Hour Trend Analysis</h3>
+            <!-- Segmented Metric Tabs -->
+            <div class="chart-metric-tabs" role="tablist">
+              <button id="metricTabTemp" type="button" class="chart-tab active" data-metric="temp">Temperature</button>
+              <button id="metricTabPop" type="button" class="chart-tab" data-metric="pop">Rain Chance</button>
+              <button id="metricTabWind" type="button" class="chart-tab" data-metric="wind">Wind Speed</button>
+              <button id="metricTabHumidity" type="button" class="chart-tab" data-metric="humidity">Humidity</button>
+            </div>
+          </div>
+          <div class="chart-canvas-box">
+            <canvas id="tempChart" height="170"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Data by Open-Meteo &bull; Developed by <strong class="dev-author">Ifham</strong></p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(function() {});
+    }
+  </script>
+</body>
+</html>
