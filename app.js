@@ -144,179 +144,90 @@ function getSolarPhase(now, sunriseStr, sunsetStr, isDay) {
   return 'day';
 }
 
-// --- Bespoke Frosted Glassmorphic 3D Weather Icon Generator ---
-function getFrostedGlassMascotSVG(code, solarPhase) {
+// --- Weather line icons (single stroke weight, tinted only where it means something) ---
+function getWeatherIcon(code, solarPhase) {
   var info = WEATHER_CODES[code] || { theme: 'sunny', isClear: true };
-  var t = info.theme;
-  var phase = solarPhase || 'day';
-  var isClear = info.isClear;
+  var night = solarPhase === 'night';
+  var rays = '<g class="wi-rays wi-warm">' +
+    [0, 45, 90, 135, 180, 225, 270, 315].map(function(a) {
+      return '<line x1="32" y1="7" x2="32" y2="12" transform="rotate(' + a + ' 32 32)"/>';
+    }).join('') + '</g>';
+  var sun = rays + '<circle class="wi-warm" cx="32" cy="32" r="12"/>';
+  var moon = '<path class="wi-moon" d="M40 14a18 18 0 1 0 12 30A15 15 0 0 1 40 14z"/>' +
+    '<path class="wi-star wi-soft" d="M50 12v6M47 15h6"/>';
+  var cloudPath = 'M20 46h26a9 9 0 0 0 .8-17.96A13 13 0 0 0 21.6 31.5 7.6 7.6 0 0 0 20 46z';
+  var cloud = '<path class="wi-cloud" d="' + cloudPath + '"/>';
+  var smallCloud = '<path class="wi-cloud" transform="translate(4 8)" d="' + cloudPath + '"/>';
+  var drops = '<path class="wi-drop" d="M24 52v6"/><path class="wi-drop" d="M33 52v6"/><path class="wi-drop" d="M42 52v6"/>';
+  var flakes = '<path class="wi-flake" d="M25 55h.01M33 58h.01M41 55h.01" stroke-width="3"/>';
+  var inner;
 
-  var dPath1 = "M126 112H44a24 24 0 0 1-3.6-47.7 32 32 0 0 1 61.4-8.8A22 22 0 0 1 126 112z";
-  var dPath2 = "M124 114H46a22 22 0 0 1-2.5-43.8 30 30 0 0 1 58.2-10.2A20 20 0 0 1 124 114z";
-  var dPath3 = "M128 110H42a25 25 0 0 1-4.2-49.6 34 34 0 0 1 63.8-7.5A24 24 0 0 1 128 110z";
-
-  if (phase === 'night' && isClear) {
-    return `
-      <svg class="svg-glass-icon" viewBox="0 0 160 160">
-        <defs>
-          <radialGradient id="pureMoonGrad" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="50%" stop-color="#e2e8f0"/>
-            <stop offset="100%" stop-color="#94a3b8"/>
-          </radialGradient>
-          <filter id="moonGlowFilter">
-            <feGaussianBlur stdDeviation="6" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        <g fill="#e0f2fe" opacity="0.8">
-          <circle cx="36" cy="40" r="2"/>
-          <circle cx="128" cy="48" r="2.5"/>
-          <circle cx="138" cy="100" r="2"/>
-          <circle cx="32" cy="110" r="1.5"/>
-        </g>
-        <g class="sun-core-pulse" filter="url(#moonGlowFilter)">
-          <path d="M96 32A40 40 0 1 1 52 76a32 32 0 0 0 44-44z" fill="url(#pureMoonGrad)"/>
-        </g>
-      </svg>
-    `;
+  if (info.isClear) {
+    inner = night ? moon : sun;
+  } else if (code === 2) {
+    inner = night
+      ? '<path class="wi-moon" transform="translate(-6 -10) scale(.8)" d="M40 14a18 18 0 1 0 12 30A15 15 0 0 1 40 14z"/>' + smallCloud
+      : '<g transform="translate(10 -8) scale(.7)">' + sun + '</g>' + smallCloud;
+  } else if (code === 45 || code === 48) {
+    inner = '<path d="M12 24h40M8 33h44M16 42h40M12 51h30" class="wi-soft"/>' + '<path d="M18 20h28" />';
+  } else if (info.theme === 'snow') {
+    inner = '<g transform="translate(0 -6)">' + cloud + '</g>' + flakes;
+  } else if (info.theme === 'thunderstorm') {
+    inner = '<g transform="translate(0 -6)">' + cloud + '</g>' +
+      '<path class="wi-bolt wi-bolt-anim" d="M34 41l-7 11h7l-3 9 10-13h-7l3-7z"/>';
+  } else if (code === 3) {
+    inner = cloud;
+  } else {
+    inner = '<g transform="translate(0 -6)">' + cloud + '</g>' + drops;
   }
+  return '<svg class="wi" viewBox="0 0 64 64" role="img" aria-hidden="true">' + inner + '</svg>';
+}
+function getFrostedGlassMascotSVG(code, solarPhase) { return getWeatherIcon(code, solarPhase); }
 
-  if (isClear) {
-    var stop1 = phase === 'evening' ? '#ff7700' : (phase === 'morning' ? '#ffaa00' : '#fff066');
-    var stop2 = phase === 'evening' ? '#ff0055' : (phase === 'morning' ? '#ff5500' : '#d97706');
 
-    return `
-      <svg class="svg-glass-icon" viewBox="0 0 160 160">
-        <defs>
-          <radialGradient id="pureSunGrad" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="${stop1}"/>
-            <stop offset="100%" stop-color="${stop2}"/>
-          </radialGradient>
-          <linearGradient id="pureRayGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#fde68a"/>
-            <stop offset="100%" stop-color="#f59e0b"/>
-          </linearGradient>
-          <filter id="pureSunGlow">
-            <feGaussianBlur stdDeviation="8" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        <g class="sun-ray" filter="url(#pureSunGlow)">
-          <rect x="74" y="14" width="12" height="24" rx="6" fill="url(#pureRayGrad)"/>
-          <rect x="74" y="122" width="12" height="24" rx="6" fill="url(#pureRayGrad)"/>
-          <rect x="14" y="74" width="24" height="12" rx="6" fill="url(#pureRayGrad)"/>
-          <rect x="122" y="74" width="24" height="12" rx="6" fill="url(#pureRayGrad)"/>
-          <rect x="32" y="32" width="12" height="24" rx="6" fill="url(#pureRayGrad)" transform="rotate(-45 38 44)"/>
-          <rect x="116" y="116" width="12" height="24" rx="6" fill="url(#pureRayGrad)" transform="rotate(-45 122 128)"/>
-          <rect x="32" y="104" width="12" height="24" rx="6" fill="url(#pureRayGrad)" transform="rotate(45 38 116)"/>
-          <rect x="116" y="20" width="12" height="24" rx="6" fill="url(#pureRayGrad)" transform="rotate(45 122 32)"/>
-        </g>
-        <circle class="sun-core-pulse" cx="80" cy="80" r="42" fill="url(#pureSunGrad)" filter="drop-shadow(0 10px 20px rgba(217,119,6,0.5))"/>
-      </svg>
-    `;
+// Status colour ramp for progress bars (quiet green -> amber -> clay)
+function setBar(id, frac) {
+  var el = $(id);
+  if (!el) return;
+  frac = Math.max(0, Math.min(1, frac));
+  el.style.background = frac < 0.34 ? 'var(--ok)' : (frac < 0.67 ? 'var(--mid)' : 'var(--bad)');
+  requestAnimationFrame(function() { el.style.width = (frac * 100) + '%'; });
+}
+
+// Count a number up/down to its new value (skipped for reduced motion)
+function animateNumber(el, to) {
+  if (!el) return;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var from = parseInt(el.textContent, 10);
+  if (reduce || isNaN(from) || isNaN(to) || from === to) { el.textContent = to; return; }
+  var start = null, dur = 700;
+  function step(ts) {
+    if (start === null) start = ts;
+    var p = Math.min(1, (ts - start) / dur);
+    var e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(step);
   }
+  requestAnimationFrame(step);
+}
 
-  if (t === 'drizzle' || t === 'sunny') {
-    return `
-      <svg class="svg-glass-icon" viewBox="0 0 160 160">
-        <defs>
-          <linearGradient id="rainDropGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#00d2ff"/>
-            <stop offset="100%" stop-color="#0066ff"/>
-          </linearGradient>
-          <radialGradient id="behindSunGrad" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#fff066"/>
-            <stop offset="100%" stop-color="#ff9900"/>
-          </radialGradient>
-          <linearGradient id="glassBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="rgba(255, 255, 255, 0.95)"/>
-            <stop offset="60%" stop-color="rgba(255, 255, 255, 0.75)"/>
-            <stop offset="100%" stop-color="rgba(230, 240, 255, 0.45)"/>
-          </linearGradient>
-          <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
-            <feOffset dx="0" dy="8" result="offsetblur"/>
-            <feComponentTransfer><feFuncA type="linear" slope="0.25"/></feComponentTransfer>
-            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
+// Reveal panels as they scroll into view
+function setupReveal() {
+  document.documentElement.classList.add('js');
+  var items = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) { items.forEach(function(el) { el.classList.add('in'); }); return; }
+  var io = new IntersectionObserver(function(entries) {
+    entries.forEach(function(en) {
+      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -6% 0px' });
+  items.forEach(function(el, i) { el.style.setProperty('--d', ((i % 3) * 70) + 'ms'); io.observe(el); });
+}
 
-        <circle cx="98" cy="54" r="30" fill="url(#behindSunGrad)" filter="drop-shadow(0 0 16px rgba(255,153,0,0.8))"/>
-
-        ${t === 'drizzle' ? `
-          <g>
-            <rect class="rain-drop-particle" x="52" y="96" width="6" height="24" rx="3" fill="url(#rainDropGrad)" style="animation-delay: 0s;"/>
-            <rect class="rain-drop-particle" x="72" y="104" width="6" height="26" rx="3" fill="url(#rainDropGrad)" style="animation-delay: 0.3s;"/>
-            <rect class="rain-drop-particle" x="92" y="96" width="6" height="24" rx="3" fill="url(#rainDropGrad)" style="animation-delay: 0.6s;"/>
-          </g>
-        ` : ''}
-
-        <g filter="url(#softShadow)">
-          <path d="${dPath1}" fill="url(#glassBodyGrad)" stroke="rgba(255, 255, 255, 0.9)" stroke-width="1.5">
-            <animate attributeName="d" dur="8s" repeatCount="indefinite" values="${dPath1}; ${dPath2}; ${dPath3}; ${dPath1}" keyTimes="0; 0.33; 0.66; 1"/>
-          </path>
-        </g>
-      </svg>
-    `;
-  }
-
-  if (t === 'thunderstorm') {
-    return `
-      <svg class="svg-glass-icon" viewBox="0 0 160 160">
-        <defs>
-          <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#00f2fe"/>
-            <stop offset="100%" stop-color="#4facfe"/>
-          </linearGradient>
-          <linearGradient id="glassBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="rgba(255, 255, 255, 0.95)"/>
-            <stop offset="60%" stop-color="rgba(255, 255, 255, 0.75)"/>
-            <stop offset="100%" stop-color="rgba(230, 240, 255, 0.45)"/>
-          </linearGradient>
-          <filter id="lightningGlow">
-            <feGaussianBlur stdDeviation="4" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-
-        <g filter="url(#lightningGlow)">
-          <polygon points="78,72 60,110 78,110 68,138 98,96 80,96" fill="url(#boltGrad)"/>
-        </g>
-
-        <g filter="drop-shadow(0 10px 20px rgba(0,0,0,0.3))">
-          <path d="${dPath1}" fill="url(#glassBodyGrad)" stroke="rgba(255, 255, 255, 0.9)" stroke-width="1.5">
-            <animate attributeName="d" dur="8s" repeatCount="indefinite" values="${dPath1}; ${dPath2}; ${dPath3}; ${dPath1}" keyTimes="0; 0.33; 0.66; 1"/>
-          </path>
-        </g>
-      </svg>
-    `;
-  }
-
-  return `
-    <svg class="svg-glass-icon" viewBox="0 0 160 160">
-      <defs>
-        <linearGradient id="windGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#00c6ff"/>
-          <stop offset="100%" stop-color="#0072ff"/>
-        </linearGradient>
-        <linearGradient id="glassBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="rgba(255, 255, 255, 0.95)"/>
-          <stop offset="60%" stop-color="rgba(255, 255, 255, 0.75)"/>
-          <stop offset="100%" stop-color="rgba(230, 240, 255, 0.45)"/>
-        </linearGradient>
-      </defs>
-      <g stroke="url(#windGrad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
-        <path d="M80 96v26M66 112l14 14 14-14"/>
-        <line x1="60" y1="104" x2="100" y2="104"/>
-      </g>
-      <g filter="drop-shadow(0 10px 20px rgba(0,0,0,0.3))">
-        <path d="${dPath1}" fill="url(#glassBodyGrad)" stroke="rgba(255, 255, 255, 0.9)" stroke-width="1.5">
-          <animate attributeName="d" dur="8s" repeatCount="indefinite" values="${dPath1}; ${dPath2}; ${dPath3}; ${dPath1}" keyTimes="0; 0.33; 0.66; 1"/>
-        </path>
-      </g>
-    </svg>
-  `;
+// Chart palette follows the active theme
+function cssVar(name, fallback) {
+  var v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
 }
 
 function $(id) { return document.getElementById(id); }
@@ -340,7 +251,9 @@ function applyWeatherTheme(code, solarPhase) {
   if (!info.isClear) {
     bodyTheme = 'weather-theme-' + theme + ' accent-' + state.accentTheme;
   }
-  document.body.className = bodyTheme;
+  var keep = document.body.classList.contains('light-theme') ? ' light-theme' : '';
+  var particles = document.body.className.match(/weather-particles-\w+/);
+  document.body.className = bodyTheme + keep + (particles ? ' ' + particles[0] : '');
 
   var cardTheme = 'card-theme-' + phase;
   if (!info.isClear) {
@@ -438,28 +351,28 @@ function renderSmartAdvice(current, daily) {
 
   var headline = "Great conditions for outdoor activities";
   var body = "Comfortable temperatures expected. Wear light breathable layers.";
-  var emoji = "🏃";
+  var emoji = "Outdoors";
 
   if (code >= 95) {
     headline = "Severe Thunderstorm Alert";
     body = "Stay indoors if possible. Heavy lightning and strong gusts reported.";
-    emoji = "⚡";
+    emoji = "Storm";
   } else if (code >= 61 || pop > 60) {
     headline = "Rain Expected Today";
     body = "Carry a waterproof jacket or umbrella before heading out.";
-    emoji = "☔";
+    emoji = "Rain";
   } else if (temp <= 5) {
     headline = "Freezing Weather Ahead";
     body = "Bundle up with heavy coat, thermal gloves, and a beanie.";
-    emoji = "🧥";
+    emoji = "Cold";
   } else if (uv >= 7) {
     headline = "Extreme UV Ray Warning";
     body = "High UV radiation index. Wear sunglasses and apply SPF 50 sunscreen.";
-    emoji = "🧴";
+    emoji = "UV";
   } else if (wind >= 25) {
     headline = "Breezy Wind Conditions";
     body = "Wind gusts up to " + Math.round(wind) + " km/h. Secure loose outdoor objects.";
-    emoji = "💨";
+    emoji = "Wind";
   }
 
   $('adviceHeadline').textContent = headline;
@@ -551,11 +464,16 @@ function renderSavedCities() {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'preset-pill';
-    btn.textContent = '⭐ ' + item.name;
+    btn.textContent = item.name;
     btn.onclick = function() {
       loadLocationWeather(item.lat, item.lon, item.name, item.country);
     };
     container.appendChild(btn);
+  });
+
+  // Hide preset chips that duplicate a saved city
+  $$('.preset-pill[data-city]').forEach(function(p) {
+    p.classList.toggle('hidden', state.savedCities.some(function(c) { return c.name === p.getAttribute('data-city'); }));
   });
 
   var bookmarkBtn = $('bookmarkCityBtn');
@@ -599,7 +517,7 @@ function renderDashboard() {
   var artworkBox = $('hero3DArtwork');
   if (artworkBox) artworkBox.innerHTML = getFrostedGlassMascotSVG(current.weather_code, solarPhase);
 
-  $('currentTemp').textContent = formatTemp(current.temperature_2m);
+  animateNumber($('currentTemp'), formatTemp(current.temperature_2m));
   var symbol = document.querySelector('.temp-unit-symbol');
   if (symbol) symbol.textContent = state.unit === 'fahrenheit' ? '°F' : '°C';
 
@@ -612,11 +530,11 @@ function renderDashboard() {
   var todayMax = daily.temperature_2m_max[0];
   var todayMin = daily.temperature_2m_min[0];
 
-  $('badgeHumidity').textContent = current.relative_humidity_2m + '% Humidity';
+  $('badgeHumidity').textContent = current.relative_humidity_2m + '%';
   var windUnit = state.unit === 'fahrenheit' ? 'mph' : 'km/h';
   var windVal = state.unit === 'fahrenheit' ? Math.round(current.wind_speed_10m * 0.621371) : Math.round(current.wind_speed_10m);
-  $('badgeWind').textContent = windVal + ' ' + windUnit + ' Wind';
-  $('badgeHighLow').textContent = 'H: ' + formatTemp(todayMax) + '° / L: ' + formatTemp(todayMin) + '°';
+  $('badgeWind').textContent = windVal + ' ' + windUnit;
+  $('badgeHighLow').textContent = formatTemp(todayMax) + '° / ' + formatTemp(todayMin) + '°';
 
   var uv = daily.uv_index_max ? daily.uv_index_max[0] : 0;
   $('uvValue').textContent = Math.round(uv);
@@ -625,17 +543,17 @@ function renderDashboard() {
   if (uv >= 6) uvCat = 'High';
   if (uv >= 8) uvCat = 'Very High';
   $('uvCategory').textContent = uvCat;
-  $('uvProgress').style.width = Math.min(100, (uv / 12) * 100) + '%';
+  setBar('uvProgress', uv / 12);
 
-  var aqiVal = aqi && aqi.current ? aqi.current.us_aqi : 38;
+  var aqiVal = aqi && aqi.current && isFinite(aqi.current.us_aqi) ? aqi.current.us_aqi : 38;
   $('aqiValue').textContent = Math.round(aqiVal);
   $('aqiCategory').textContent = aqiVal <= 50 ? 'Good Air' : 'Moderate';
-  $('aqiProgress').style.width = Math.min(100, (aqiVal / 200) * 100) + '%';
+  setBar('aqiProgress', aqiVal / 200);
 
   $('windSpeed').textContent = windVal + ' ' + windUnit;
   var dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   var dirLabel = dirs[Math.round(current.wind_direction_10m / 45) % 8];
-  $('windDirText').textContent = 'Direction ' + dirLabel + ' (' + current.wind_direction_10m + '°)';
+  $('windDirText').textContent = 'From the ' + dirLabel + ' · ' + current.wind_direction_10m + '°';
   var needle = $('compassNeedle');
   if (needle) needle.style.transform = 'rotate(' + current.wind_direction_10m + 'deg)';
 
@@ -647,7 +565,7 @@ function renderDashboard() {
 
   $('feelsLike').textContent = formatTemp(current.apparent_temperature) + '°';
   var dew = hourly.dew_point_2m ? hourly.dew_point_2m[now.getHours()] : (current.temperature_2m - ((100 - current.relative_humidity_2m) / 5));
-  $('dewPoint').textContent = 'Dew point is ' + formatTemp(dew) + '°';
+  $('dewPoint').textContent = 'Dew point ' + formatTemp(dew) + '°';
 
   $('pressure').textContent = Math.round(current.surface_pressure) + ' hPa';
   var visKm = hourly.visibility ? Math.round(hourly.visibility[now.getHours()] / 1000) : 10;
@@ -670,14 +588,7 @@ function renderDashboard() {
 }
 
 // Lightweight mini weather icon for performance on mobile hourly strips
-function getMiniWeatherIcon(code) {
-  var info = WEATHER_CODES[code] || { theme: 'sunny', isClear: true };
-  if (info.isClear) return '<svg viewBox="0 0 32 32" width="100%" height="100%"><circle cx="16" cy="16" r="8" fill="#fbbf24"/></svg>';
-  if (info.theme === 'snow') return '<svg viewBox="0 0 32 32" width="100%" height="100%"><circle cx="16" cy="12" r="7" fill="rgba(255,255,255,0.8)"/><circle cx="12" cy="20" r="2" fill="#bae6fd"/><circle cx="20" cy="22" r="2" fill="#bae6fd"/></svg>';
-  if (info.theme === 'thunderstorm') return '<svg viewBox="0 0 32 32" width="100%" height="100%"><path d="M10 14h12a6 6 0 00-12 0z" fill="rgba(255,255,255,0.6)"/><polygon points="16,16 13,24 17,20 19,26" fill="#fbbf24"/></svg>';
-  if (info.theme === 'drizzle') return '<svg viewBox="0 0 32 32" width="100%" height="100%"><path d="M10 14h12a6 6 0 00-12 0z" fill="rgba(255,255,255,0.7)"/><line x1="13" y1="20" x2="13" y2="25" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="19" x2="19" y2="24" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/></svg>';
-  return '<svg viewBox="0 0 32 32" width="100%" height="100%"><path d="M8 16h16a7 7 0 00-16 0z" fill="rgba(255,255,255,0.7)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/></svg>';
-}
+function getMiniWeatherIcon(code) { return getWeatherIcon(code, 'day'); }
 
 function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
   var container = $('hourlyForecast');
@@ -697,9 +608,10 @@ function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
 
     var card = document.createElement('div');
     card.className = 'hourly-card';
+    card.style.setProperty('--i', idx);
     card.innerHTML = 
       '<span class="h-time">' + label + '</span>' +
-      '<div class="h-icon">' + (isMobileDevice ? getMiniWeatherIcon(hourly.weather_code[realIdx]) : getFrostedGlassMascotSVG(hourly.weather_code[realIdx], itemPhase)) + '</div>' +
+      '<div class="h-icon">' + getWeatherIcon(hourly.weather_code[realIdx], itemPhase) + '</div>' +
       '<span class="h-temp">' + formatTemp(hourly.temperature_2m[realIdx]) + '°</span>';
     container.appendChild(card);
   });
@@ -821,9 +733,11 @@ function renderChart(hourly) {
     if (state.chart) state.chart.destroy();
 
     var gradient = ctx.createLinearGradient(0, 0, 0, 180);
-    gradient.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-    gradient.addColorStop(0.6, 'rgba(56, 189, 248, 0.08)');
-    gradient.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+    var accent = cssVar('--accent', '#8fc4e8');
+    var inkMuted = cssVar('--ink-3', 'rgba(255,255,255,0.45)');
+    var gridLine = cssVar('--line', 'rgba(255,255,255,0.08)');
+    gradient.addColorStop(0, accent + '40');
+    gradient.addColorStop(1, accent + '00');
 
     var hairlinePlugin = {
       id: 'hairlineGuide',
@@ -837,11 +751,11 @@ function renderChart(hourly) {
           var chartCtx = chart.ctx;
           chartCtx.save();
           chartCtx.beginPath();
-          chartCtx.setLineDash([4, 4]);
+          chartCtx.setLineDash([3, 4]);
           chartCtx.moveTo(x, topY);
           chartCtx.lineTo(x, bottomY);
-          chartCtx.lineWidth = 1.5;
-          chartCtx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+          chartCtx.lineWidth = 1;
+          chartCtx.strokeStyle = cssVar('--ink-3', 'rgba(255,255,255,0.4)');
           chartCtx.stroke();
           chartCtx.restore();
         }
@@ -857,18 +771,17 @@ function renderChart(hourly) {
           {
             label: metricLabel,
             data: datasetValues,
-            borderColor: '#38bdf8',
-            borderWidth: 3,
-            tension: 0.45,
+            borderColor: accent,
+            borderWidth: 2,
+            tension: 0.4,
             fill: true,
             backgroundColor: gradient,
-            pointBackgroundColor: '#ffffff',
-            pointBorderColor: '#0284c7',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            pointHoverBackgroundColor: '#ffffff',
-            pointHoverBorderColor: '#38bdf8',
+            pointBackgroundColor: accent,
+            pointBorderWidth: 0,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: accent,
+            pointHoverBorderColor: cssVar('--bg', '#090d12'),
             pointHoverBorderWidth: 3
           }
         ]
@@ -876,6 +789,7 @@ function renderChart(hourly) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { duration: 900, easing: 'easeOutQuart' },
         interaction: {
           mode: 'index',
           intersect: false
@@ -888,15 +802,15 @@ function renderChart(hourly) {
           legend: { display: false },
           tooltip: {
             enabled: true,
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-            titleColor: '#38bdf8',
-            titleFont: { family: 'Plus Jakarta Sans', size: 13, weight: 'bold' },
-            bodyColor: '#f8fafc',
-            bodyFont: { family: 'Plus Jakarta Sans', size: 12 },
-            borderColor: 'rgba(56, 189, 248, 0.4)',
+            backgroundColor: cssVar('--pop', '#11161d'),
+            titleColor: cssVar('--ink', '#eef1f4'),
+            titleFont: { family: 'Inter', size: 12, weight: '600' },
+            bodyColor: cssVar('--ink-2', '#cbd5e1'),
+            bodyFont: { family: 'Inter', size: 12 },
+            borderColor: cssVar('--line-strong', 'rgba(255,255,255,0.18)'),
             borderWidth: 1,
             padding: 12,
-            cornerRadius: 12,
+            cornerRadius: 10,
             displayColors: false,
             callbacks: {
               title: function(items) {
@@ -920,13 +834,15 @@ function renderChart(hourly) {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { color: 'rgba(255,255,255,0.6)', font: { family: 'Plus Jakarta Sans', size: 11 } }
+            border: { display: false },
+            ticks: { color: inkMuted, maxTicksLimit: 8, font: { family: 'Inter', size: 11 } }
           },
           y: {
-            grid: { color: 'rgba(255,255,255,0.06)', borderDash: [3, 3] },
+            border: { display: false },
+            grid: { color: gridLine },
             ticks: {
-              color: 'rgba(255,255,255,0.6)',
-              font: { family: 'Plus Jakarta Sans', size: 11 },
+              color: inkMuted,
+              font: { family: 'Inter', size: 11 },
               callback: function(v) { return v + metricUnit; }
             }
           }
@@ -1341,7 +1257,7 @@ function renderRainTimeline(hourly) {
     bar.style.height = Math.max(10, pct) + '%';
     bar.setAttribute('data-pct', pct + '%');
     bar.title = new Date(hourly.time[nowHour + i]).toLocaleTimeString('en-US', { hour: 'numeric' }) + ': ' + pct + '%';
-    if (pct > 60) bar.style.background = 'linear-gradient(to top, rgba(56,189,248,0.4), rgba(56,189,248,0.9))';
+    bar.style.background = pct > 60 ? 'var(--accent)' : (pct > 30 ? 'color-mix(in srgb, var(--accent) 55%, transparent)' : '');
     container.appendChild(bar);
   });
 }
@@ -1414,11 +1330,11 @@ function renderMoonPhase() {
   if (nameEl) nameEl.textContent = name;
   if (illumEl) illumEl.textContent = illumination + '% illuminated';
   if (svgEl) {
-    var moonColor = illumination > 50 ? '#e2e8f0' : '#94a3b8';
     var shadowX = phase < 0.5 ? (1 - phase * 4) * 20 : ((phase - 0.5) * 4 - 1) * 20;
-    svgEl.innerHTML = '<svg viewBox="0 0 44 44" width="44" height="44">' +
-      '<circle cx="22" cy="22" r="18" fill="' + moonColor + '" filter="drop-shadow(0 0 8px rgba(226,232,240,0.5))"/>' +
-      '<circle cx="' + (22 + shadowX) + '" cy="22" r="18" fill="#0f172a"/>' +
+    svgEl.innerHTML = '<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">' +
+      '<defs><mask id="moonMask"><rect width="44" height="44" fill="#fff"/><circle cx="' + (22 + shadowX) + '" cy="22" r="18" fill="#000"/></mask></defs>' +
+      '<circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" stroke-opacity=".25"/>' +
+      '<circle cx="22" cy="22" r="18" fill="currentColor" mask="url(#moonMask)"/>' +
       '</svg>';
   }
 }
@@ -1514,7 +1430,7 @@ function fetchPollenData(lat, lon) {
       var progEl = $('pollenProgress');
       if (valEl) valEl.textContent = Math.round(total);
       if (catEl) catEl.textContent = cat;
-      if (progEl) progEl.style.width = Math.min(100, (total / 400) * 100) + '%';
+      if (progEl) setBar('pollenProgress', total / 400);
     }
   }).catch(function() {});
 }
@@ -1524,30 +1440,37 @@ function renderWeatherHistory(daily) {
   var canvas = $('historyChart');
   if (!canvas || !daily || !daily.temperature_2m_max) return;
   if (typeof Chart === 'undefined') return;
-  
+
   var labels = daily.time.map(function(t) {
     return new Date(t + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
   });
   var maxTemps = daily.temperature_2m_max.map(function(t) { return Math.round(convertTemp(t)); });
   var minTemps = daily.temperature_2m_min.map(function(t) { return Math.round(convertTemp(t)); });
-  
+  var warm = cssVar('--warm', '#e9c986');
+  var accent = cssVar('--accent', '#8fc4e8');
+  var inkMuted = cssVar('--ink-3', 'rgba(255,255,255,0.45)');
+
   if (state.historyChart) state.historyChart.destroy();
   var ctx = canvas.getContext('2d');
+  function ds(label, data, color) {
+    return { label: label, data: data, borderColor: color, borderWidth: 2, tension: 0.4, fill: false,
+      pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: color, pointHoverBorderColor: cssVar('--bg', '#090d12'), pointHoverBorderWidth: 3 };
+  }
   state.historyChart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'High', data: maxTemps, borderColor: '#f59e0b', borderWidth: 2, tension: 0.4, fill: false, pointRadius: 3, pointBackgroundColor: '#f59e0b' },
-        { label: 'Low', data: minTemps, borderColor: '#38bdf8', borderWidth: 2, tension: 0.4, fill: false, pointRadius: 3, pointBackgroundColor: '#38bdf8' }
-      ]
-    },
+    data: { labels: labels, datasets: [ds('High', maxTemps, warm), ds('Low', minTemps, accent)] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: 'top', labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'Plus Jakarta Sans', size: 11 }, boxWidth: 12, padding: 8 } } },
+      animation: { duration: 900, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', align: 'end', labels: { color: inkMuted, usePointStyle: true, pointStyle: 'line', boxWidth: 18, font: { family: 'Inter', size: 11 } } },
+        tooltip: { backgroundColor: cssVar('--pop', '#11161d'), titleColor: cssVar('--ink', '#eef1f4'), bodyColor: cssVar('--ink-2', '#cbd5e1'),
+          borderColor: cssVar('--line-strong', 'rgba(255,255,255,0.18)'), borderWidth: 1, padding: 10, cornerRadius: 10, boxPadding: 4 }
+      },
       scales: {
-        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { family: 'Plus Jakarta Sans', size: 10 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: 'rgba(255,255,255,0.6)', font: { family: 'Plus Jakarta Sans', size: 10 } } }
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: inkMuted, font: { family: 'Inter', size: 11 } } },
+        y: { grid: { color: cssVar('--line', 'rgba(255,255,255,0.08)') }, border: { display: false }, ticks: { color: inkMuted, font: { family: 'Inter', size: 11 } } }
       }
     }
   });
@@ -1567,11 +1490,11 @@ function renderSunsetCountdown(sunriseStr, sunsetStr) {
     var target, label;
     
     if (now < sunrise) {
-      target = sunrise; label = '\u2600\ufe0f Sunrise in ';
+      target = sunrise; label = 'Sunrise in ';
     } else if (now < sunset) {
-      target = sunset; label = '\ud83c\udf05 Sunset in ';
+      target = sunset; label = 'Sunset in ';
     } else {
-      el.textContent = '\ud83c\udf19 Night time';
+      el.textContent = 'After dark';
       return;
     }
     
@@ -1648,6 +1571,7 @@ function setupThemeToggle() {
         : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
       haptic('light');
       showToast(isLight ? 'Light mode' : 'Dark mode', 'info');
+      if (state.weather) { renderChart(state.weather.hourly); renderWeatherHistory(state.weather.daily); }
     };
   }
 }
@@ -1666,6 +1590,7 @@ function setupLanguageSelector() {
 }
 
 function initApp() {
+  setupReveal();
   setupSearch();
   setupPresets();
   setupUnits();

@@ -1,6 +1,6 @@
 // Service Worker for The Weather Accurate PWA
 // P6: Offline Mode with intelligent caching strategies
-const CACHE_NAME = 'weather-accurate-v3';
+const CACHE_NAME = 'weather-accurate-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
