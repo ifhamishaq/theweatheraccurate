@@ -119,6 +119,34 @@ var WEATHER_CODES = {
   99: { description: 'Heavy Thunderstorm', theme: 'thunderstorm', isClear: false }
 };
 
+// --- Location-aware time ---
+// Open-Meteo (timezone=auto) returns the city's wall-clock strings. Shift the browser clock to the
+// city's wall clock so Date getters read the city's local time, wherever the viewer is.
+function locationNow() {
+  var w = state.weather;
+  if (!w || typeof w.utc_offset_seconds !== 'number') return new Date();
+  return new Date(Date.now() + w.utc_offset_seconds * 1000 + new Date().getTimezoneOffset() * 60000);
+}
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function isoDayLocal(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function isoHourLocal(d) { return isoDayLocal(d) + 'T' + pad2(d.getHours()); }
+// The API is asked for past_days=1, so arrays start yesterday: find where "now" / "today" really are.
+function nowHourIndex(hourly) {
+  var key = isoHourLocal(locationNow());
+  var i = hourly.time.findIndex(function(t) { return t.slice(0, 13) === key; });
+  return i >= 0 ? i : 0;
+}
+function todayIndex(daily) {
+  var i = daily.time.indexOf(isoDayLocal(locationNow()));
+  return i >= 0 ? i : 0;
+}
+// Day/night phase for any moment, using that day's own sunrise/sunset
+function phaseAt(date, daily) {
+  var i = daily.time.indexOf(isoDayLocal(date));
+  if (i < 0 || !daily.sunrise) return (date.getHours() >= 6 && date.getHours() < 19) ? 'day' : 'night';
+  return getSolarPhase(date, daily.sunrise[i], daily.sunset[i], 1);
+}
+
 // Calculate Solar Phase
 function getSolarPhase(now, sunriseStr, sunsetStr, isDay) {
   if (isDay === 0) return 'night';
@@ -165,9 +193,10 @@ function getWeatherIcon(code, solarPhase) {
   if (info.isClear) {
     inner = night ? moon : sun;
   } else if (code === 2) {
-    inner = night
-      ? '<path class="wi-moon" transform="translate(-6 -10) scale(.8)" d="M40 14a18 18 0 1 0 12 30A15 15 0 0 1 40 14z"/>' + smallCloud
-      : '<g transform="translate(10 -8) scale(.7)">' + sun + '</g>' + smallCloud;
+    var cutout = '<mask id="wiCloudCut"><rect width="64" height="64" fill="#fff"/><path transform="translate(4 8)" d="' + cloudPath + '" fill="#000" stroke="#000" stroke-width="5"/></mask>';
+    inner = cutout + '<g mask="url(#wiCloudCut)">' + (night
+      ? '<path class="wi-moon" transform="translate(-6 -10) scale(.8)" d="M40 14a18 18 0 1 0 12 30A15 15 0 0 1 40 14z"/>'
+      : '<g transform="translate(10 -8) scale(.7)">' + sun + '</g>') + '</g>' + smallCloud;
   } else if (code === 45 || code === 48) {
     inner = '<path d="M12 24h40M8 33h44M16 42h40M12 51h30" class="wi-soft"/>' + '<path d="M18 20h28" />';
   } else if (info.theme === 'snow') {
@@ -324,8 +353,8 @@ function renderYesterdayComparison(currentTemp, hourly) {
   var textEl = $('comparisonText');
   if (!textEl || !hourly || !hourly.temperature_2m) return;
 
-  var nowHour = new Date().getHours();
-  var yesterdayTemp = hourly.temperature_2m[nowHour];
+  var nowIdx = nowHourIndex(hourly);
+  var yesterdayTemp = nowIdx >= 24 ? hourly.temperature_2m[nowIdx - 24] : undefined;
 
   if (yesterdayTemp !== undefined && yesterdayTemp !== null) {
     var diff = Math.round(convertTemp(currentTemp)) - Math.round(convertTemp(yesterdayTemp));
@@ -348,8 +377,8 @@ function renderSmartAdvice(current, daily) {
   var temp = current.temperature_2m;
   var code = current.weather_code;
   var wind = current.wind_speed_10m;
-  var uv = daily.uv_index_max ? daily.uv_index_max[0] : 0;
-  var pop = daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : 0;
+  var uv = daily.uv_index_max ? daily.uv_index_max[todayIndex(daily)] : 0;
+  var pop = daily.precipitation_probability_max ? daily.precipitation_probability_max[todayIndex(daily)] : 0;
 
   var headline = "Great conditions for outdoor activities";
   var body = "Comfortable temperatures expected. Wear light breathable layers.";
@@ -389,7 +418,7 @@ function checkWeatherAlerts(current, daily) {
   if (!alertBar || !alertText) return;
 
   var code = current.weather_code;
-  var uv = daily.uv_index_max ? daily.uv_index_max[0] : 0;
+  var uv = daily.uv_index_max ? daily.uv_index_max[todayIndex(daily)] : 0;
   var wind = current.wind_speed_10m;
 
   var alertMsg = "";
@@ -509,9 +538,9 @@ function renderDashboard() {
   var hourly = weather.hourly;
   var daily = weather.daily;
 
-  var now = new Date();
-  var sunriseStr = daily.sunrise ? daily.sunrise[0] : null;
-  var sunsetStr = daily.sunset ? daily.sunset[0] : null;
+  var now = locationNow();
+  var sunriseStr = daily.sunrise ? daily.sunrise[todayIndex(daily)] : null;
+  var sunsetStr = daily.sunset ? daily.sunset[todayIndex(daily)] : null;
   var solarPhase = getSolarPhase(now, sunriseStr, sunsetStr, current.is_day);
 
   applyWeatherTheme(current.weather_code, solarPhase);
@@ -529,8 +558,8 @@ function renderDashboard() {
 
   $('currentTime').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  var todayMax = daily.temperature_2m_max[0];
-  var todayMin = daily.temperature_2m_min[0];
+  var todayMax = daily.temperature_2m_max[todayIndex(daily)];
+  var todayMin = daily.temperature_2m_min[todayIndex(daily)];
 
   $('badgeHumidity').textContent = current.relative_humidity_2m + '%';
   var windUnit = state.unit === 'fahrenheit' ? 'mph' : 'km/h';
@@ -538,7 +567,7 @@ function renderDashboard() {
   $('badgeWind').textContent = windVal + ' ' + windUnit;
   $('badgeHighLow').textContent = formatTemp(todayMax) + '° / ' + formatTemp(todayMin) + '°';
 
-  var uv = daily.uv_index_max ? daily.uv_index_max[0] : 0;
+  var uv = daily.uv_index_max ? daily.uv_index_max[todayIndex(daily)] : 0;
   $('uvValue').textContent = Math.round(uv);
   var uvCat = 'Low';
   if (uv >= 3) uvCat = 'Moderate';
@@ -560,17 +589,17 @@ function renderDashboard() {
   if (needle) needle.style.transform = 'rotate(' + current.wind_direction_10m + 'deg)';
 
   if (daily.sunrise && daily.sunset) {
-    $('sunriseTime').textContent = new Date(daily.sunrise[0]).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    $('sunsetTime').textContent = new Date(daily.sunset[0]).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    renderSolarArc(now, daily.sunrise[0], daily.sunset[0]);
+    $('sunriseTime').textContent = new Date(daily.sunrise[todayIndex(daily)]).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    $('sunsetTime').textContent = new Date(daily.sunset[todayIndex(daily)]).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    renderSolarArc(now, daily.sunrise[todayIndex(daily)], daily.sunset[todayIndex(daily)]);
   }
 
   $('feelsLike').textContent = formatTemp(current.apparent_temperature) + '°';
-  var dew = hourly.dew_point_2m ? hourly.dew_point_2m[now.getHours()] : (current.temperature_2m - ((100 - current.relative_humidity_2m) / 5));
+  var dew = hourly.dew_point_2m ? hourly.dew_point_2m[nowHourIndex(hourly)] : (current.temperature_2m - ((100 - current.relative_humidity_2m) / 5));
   $('dewPoint').textContent = 'Dew point ' + formatTemp(dew) + '°';
 
   $('pressure').textContent = Math.round(current.surface_pressure) + ' hPa';
-  var visKm = hourly.visibility ? Math.round(hourly.visibility[now.getHours()] / 1000) : 10;
+  var visKm = hourly.visibility ? Math.round(hourly.visibility[nowHourIndex(hourly)] / 1000) : 10;
   $('visibility').textContent = visKm + ' km';
 
   renderYesterdayComparison(current.temperature_2m, hourly);
@@ -597,7 +626,7 @@ function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
   if (!container) return;
   container.innerHTML = '';
 
-  var nowHour = new Date().getHours();
+  var nowHour = nowHourIndex(hourly);
   var next24 = hourly.time.slice(nowHour, nowHour + 24);
 
   next24.forEach(function(timeStr, idx) {
@@ -605,8 +634,7 @@ function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
     var dateObj = new Date(timeStr);
     var label = idx === 0 ? 'Now' : dateObj.toLocaleTimeString('en-US', { hour: 'numeric' });
 
-    var itemIsDay = dateObj.getHours() >= 6 && dateObj.getHours() <= 19 ? 1 : 0;
-    var itemPhase = getSolarPhase(dateObj, sunriseStr, sunsetStr, itemIsDay);
+    var itemPhase = phaseAt(dateObj, state.weather.daily);
 
     var card = document.createElement('div');
     card.className = 'hourly-card';
@@ -625,15 +653,18 @@ function renderDailyForecast(daily) {
   if (!container) return;
   container.innerHTML = '';
 
+  var firstDay = todayIndex(daily);
+  var lastDay = Math.min(daily.time.length, firstDay + 7);
   var maxList = daily.temperature_2m_max;
   var minList = daily.temperature_2m_min;
-  var globalMax = Math.max.apply(Math, maxList);
-  var globalMin = Math.min.apply(Math, minList);
+  var globalMax = Math.max.apply(Math, maxList.slice(firstDay, lastDay));
+  var globalMin = Math.min.apply(Math, minList.slice(firstDay, lastDay));
   var totalRange = globalMax - globalMin || 1;
 
   daily.time.forEach(function(timeStr, idx) {
+    if (idx < firstDay || idx >= lastDay) return;
     var dateObj = new Date(timeStr + 'T00:00:00');
-    var dayName = idx === 0 ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+    var dayName = idx === firstDay ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
 
     var max = maxList[idx];
     var min = minList[idx];
@@ -683,7 +714,7 @@ function renderDailyForecast(daily) {
         card.className = 'hourly-card';
         card.innerHTML = 
           '<span class="h-time">' + hDate.toLocaleTimeString('en-US', { hour: 'numeric' }) + '</span>' +
-          '<div class="h-icon">' + getFrostedGlassMascotSVG(state.weather.hourly.weather_code[realIdx], 'day') + '</div>' +
+          '<div class="h-icon">' + getWeatherIcon(state.weather.hourly.weather_code[realIdx], phaseAt(hDate, daily)) + '</div>' +
           '<span class="h-temp">' + formatTemp(state.weather.hourly.temperature_2m[realIdx]) + '°</span>';
         strip.appendChild(card);
       });
@@ -701,7 +732,7 @@ function renderChart(hourly) {
   var canvas = $('tempChart');
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
-  var nowHour = new Date().getHours();
+  var nowHour = nowHourIndex(hourly);
 
   var rawTimeList = hourly.time.slice(nowHour, nowHour + 24);
   var labels = rawTimeList.map(function(t) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric' }); });
@@ -1251,7 +1282,7 @@ function renderRainTimeline(hourly) {
   var container = $('rainTimeline');
   if (!container || !hourly || !hourly.precipitation_probability) return;
   container.innerHTML = '';
-  var nowHour = new Date().getHours();
+  var nowHour = nowHourIndex(hourly);
   var next12 = hourly.precipitation_probability.slice(nowHour, nowHour + 12);
   next12.forEach(function(pct, i) {
     var bar = document.createElement('div');
@@ -1486,7 +1517,7 @@ function renderSunsetCountdown(sunriseStr, sunsetStr) {
   if (!el || !sunriseStr || !sunsetStr) return;
   
   function update() {
-    var now = new Date();
+    var now = locationNow();
     var sunrise = new Date(sunriseStr);
     var sunset = new Date(sunsetStr);
     var target, label;
