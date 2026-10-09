@@ -892,7 +892,7 @@ function renderChart(hourly) {
           x: {
             grid: { display: false },
             border: { display: false },
-            ticks: { color: inkMuted, maxTicksLimit: 8, font: { family: 'Inter', size: 11 } }
+            ticks: { color: inkMuted, maxRotation: 0, autoSkip: true, maxTicksLimit: window.innerWidth < 560 ? 5 : 8, font: { family: 'Inter', size: 11 } }
           },
           y: {
             border: { display: false },
@@ -1787,31 +1787,34 @@ function registerServiceWorker() {
 }
 
 function setupInstall() {
-  var btn = $('installBtn');
-  if (!btn || isStandalone) return;
+  var btns = [$('installBtn'), $('installChip')].filter(Boolean);
+  if (!btns.length || isStandalone) return;
+  function show(on) { btns.forEach(function(b) { b.classList.toggle('hidden', !on); }); }
 
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     deferredInstall = e;
-    btn.classList.remove('hidden');
+    show(true);
   });
   window.addEventListener('appinstalled', function() {
     deferredInstall = null;
-    btn.classList.add('hidden');
+    show(false);
     showToast('App installed', 'success');
   });
   // iOS has no install prompt: show the button and explain the manual steps
-  if (isIOS) btn.classList.remove('hidden');
+  if (isIOS) show(true);
 
-  btn.onclick = function() {
-    haptic('light');
-    if (deferredInstall) {
-      deferredInstall.prompt();
-      deferredInstall.userChoice.then(function() { deferredInstall = null; btn.classList.add('hidden'); });
-    } else if (isIOS) {
-      showToast('Tap the Share icon, then "Add to Home Screen"', 'info', 6000);
-    }
-  };
+  btns.forEach(function(btn) {
+    btn.onclick = function() {
+      haptic('light');
+      if (deferredInstall) {
+        deferredInstall.prompt();
+        deferredInstall.userChoice.then(function() { deferredInstall = null; show(false); });
+      } else if (isIOS) {
+        showToast('Tap the Share icon, then "Add to Home Screen"', 'info', 6000);
+      }
+    };
+  });
 }
 
 // ---- Notifications ----

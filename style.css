@@ -818,8 +818,6 @@ body.light-theme .time-row input { color-scheme: light; }
 
 @media (max-width: 560px) {
   .sheet { margin: auto auto 0; width: 100vw; max-width: 100vw; border-radius: 24px 24px 0 0; border-bottom: 0; }
-  .install-btn span { display: none; }
-  .install-btn { width: 34px; padding: 0; justify-content: center; }
 }
 
 /* Save battery: freeze every animation while the tab is in the background */
@@ -896,3 +894,110 @@ body.is-hidden *, body.is-hidden *::before, body.is-hidden *::after { animation-
 #solarArcDone { transition: stroke-dasharray 1.4s var(--ease); }
 
 .compass-tile-body .tile-main-val { font-size: 2.1rem; white-space: nowrap; }
+
+
+/* ==========================================================================
+   Mobile refinements
+   ========================================================================== */
+.install-chip { display: none; }
+
+@media (max-width: 560px) {
+  .full-viewport { padding-inline: 16px; }
+  .app-navbar { grid-template-columns: minmax(0, 1fr) auto; gap: 12px 8px; padding: 4px 0 14px; }
+  .brand { min-width: 0; gap: 8px; }
+  .brand-the { display: none; }
+  .brand-text { font-size: 1.3rem; overflow: hidden; text-overflow: ellipsis; }
+  .navbar-right { gap: 2px; }
+  #installBtn { display: none; }
+  .install-chip { display: inline-flex; flex: none; height: 40px; }
+  .install-chip.hidden { display: none !important; }
+
+  /* Comfortable thumb targets */
+  .icon-btn { width: 44px; height: 44px; }
+  .unit-toggle-segmented { padding: 3px; }
+  .segment-btn { min-width: 44px; height: 36px; }
+  .search-input-pill { height: 48px; padding-left: 14px; }
+  .search-field { font-size: 16px; }              /* stops iOS zooming into the field */
+  .btn-clear, .btn-locate { width: 40px; height: 40px; }
+  .preset-pill { height: 40px; padding: 0 18px; }
+  .chart-tab { height: 36px; padding: 0 14px; }
+  .quick-cities-row { gap: 8px; padding-bottom: 18px; margin-inline: -16px; padding-inline: 16px; }
+
+  /* Hero */
+  .hero-top-actions { top: 12px; right: 10px; gap: 0; }
+  .hero-card-inner { padding-top: 2px; }
+  .location-name { padding-right: 150px; font-size: 1.55rem; }
+  .time-stamp { padding-right: 130px; }
+  .hero-artwork-box { width: 104px; top: 54px; right: -2px; }
+  .temp-readout-main { margin-top: 22px; }
+  .temp-val { font-size: clamp(6rem, 30vw, 7.6rem); }
+  .condition-name { margin-top: 6px; }
+  .hero-stats { margin-top: 22px; padding-top: 18px; gap: 12px 24px; }
+  .stage-hourly-wrapper, .rain-timeline-wrapper { margin-top: 22px; padding-top: 18px; }
+  .hourly-scroll-strip { margin-inline: -4px; scroll-snap-type: x mandatory; scroll-padding-inline: 4px; }
+  .hourly-card { min-width: 58px; padding: 12px 6px; }
+  .rain-timeline-bar { height: 46px; gap: 4px; }
+
+  /* Cards */
+  .panel { border-radius: 20px; }
+  .metrics-tiles-grid { gap: 10px; }
+  .detail-tile-card { padding: 14px; min-height: 120px; border-radius: 18px; }
+  .tile-header { margin-bottom: 4px; font-size: 0.66rem; }
+  .tile-main-val { font-size: 2rem; }
+  .compass-tile-body .tile-main-val { font-size: 1.5rem; }
+  .compass-svg-box svg { width: 44px; height: 44px; }
+  .val-md { font-size: 1.3rem; }
+  .twin-vals { grid-template-columns: 1fr; gap: 6px; }
+  .daily-item-row { padding: 14px 6px; margin: 0 -6px; min-height: 52px; }
+  .aqi-breakdown-grid { gap: 16px; }
+  .multi-city-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-footer { margin-top: 36px; }
+
+  /* Sheet sits on the home-indicator safe area */
+  .sheet-inner { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .toast-container { bottom: max(20px, env(safe-area-inset-bottom)); width: calc(100vw - 32px); }
+  .toast-item { max-width: 100%; text-align: center; }
+}
+
+@media (max-width: 380px) {
+  .metrics-tiles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* keep 2-up on small phones */
+  .brand-text { font-size: 1.2rem; }
+  .location-name { padding-right: 140px; }
+  .tile-main-val { font-size: 1.8rem; }
+}
+
+/* Any touch device: nothing smaller than a fingertip */
+@media (pointer: coarse) {
+  .accent-dot { width: 18px; height: 18px; }
+  .lang-select { height: 44px; }
+}
+
+@media (max-width: 560px) {
+  .hero-stats { grid-template-columns: repeat(3, auto); gap: 12px 20px; }
+  .hero-stats .hero-stat:last-child { grid-column: auto; }
+  .tile-main-val.tile-main-val--sm { font-size: 1.15rem; line-height: 1.2; }
+  .moon-phase-visual svg { width: 38px; height: 38px; }
+  .last-updated-badge { margin-top: 14px; }
+}
+
+/* Mobile tile arrangement: pairs of short tiles, wide tiles for the ones with more to show */
+@media (max-width: 560px) {
+  .metrics-tiles-grid > :nth-child(1) { order: 1; }   /* UV */
+  .metrics-tiles-grid > :nth-child(2) { order: 2; }   /* Air quality */
+  .metrics-tiles-grid > :nth-child(3) { order: 3; }   /* Wind */
+  .metrics-tiles-grid > :nth-child(6) { order: 4; }   /* Feels like */
+  .metrics-tiles-grid > :nth-child(4) { order: 5; grid-column: 1 / -1; }   /* Sun */
+  .metrics-tiles-grid > :nth-child(5) { order: 6; }   /* Moon */
+  .metrics-tiles-grid > :nth-child(8) { order: 7; }   /* Pollen */
+  .metrics-tiles-grid > :nth-child(7) { order: 8; grid-column: 1 / -1; }   /* Pressure & visibility */
+
+  .metrics-tiles-grid > :nth-child(7) .twin-vals { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .solar-arc-box svg { height: 72px; }
+  .moon-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .detail-tile-card { min-height: 112px; }
+}
+
+@media (max-width: 560px) {
+  .solar-arc-box { display: flex; justify-content: center; }
+  .solar-arc-box svg { width: 100%; max-width: 260px; height: auto; }
+}
