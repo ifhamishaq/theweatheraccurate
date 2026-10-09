@@ -800,3 +800,4 @@ body.loading .d-day-name {
   .tile-main-val--sm { font-size: 1.15rem; }
   .moon-row { gap: 10px; }
 }
+#solarArcDone { transition: stroke-dasharray 1.4s var(--ease); }

@@ -307,6 +307,8 @@ function renderSolarArc(now, sunriseStr, sunsetStr) {
   var x = 70 + 60 * Math.cos(angle);
   var y = 55 - 40 * Math.sin(angle);
 
+  var done = $('solarArcDone');
+  if (done) done.setAttribute('stroke-dasharray', (pct * 100).toFixed(1) + ' 100');
   node.setAttribute('cx', x.toFixed(1));
   node.setAttribute('cy', y.toFixed(1));
 
