@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18222e"/>
+      <stop offset="1" stop-color="#0b1118"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.7" cy="0.32" r="0.5">
+      <stop offset="0" stop-color="#f0d9a0" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#f0d9a0" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="cut">
+      <rect width="512" height="512" fill="#fff"/>
+      <g fill="#000" stroke="#000" stroke-width="26" stroke-linejoin="round" transform="translate(-40 30)">
+        <rect x="130" y="310" width="270" height="86" rx="43"/>
+        <circle cx="225" cy="290" r="70"/><circle cx="318" cy="262" r="88"/>
+      </g>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="0" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="0" fill="url(#glow)"/>
+  <g transform="translate(-20 0)">
+    <circle cx="372" cy="178" r="94" fill="#f0d9a0" mask="url(#cut)"/>
+    <g fill="#f4f7fa" transform="translate(-40 30)">
+      <rect x="130" y="310" width="270" height="86" rx="43"/>
+      <circle cx="225" cy="290" r="70"/><circle cx="318" cy="262" r="88"/>
+    </g>
+  </g>
+</svg>

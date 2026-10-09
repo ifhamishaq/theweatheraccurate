@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><mask id="cut"><rect width="512" height="512" fill="#fff"/>
+    <g fill="#000" stroke="#000" stroke-width="26" stroke-linejoin="round" transform="translate(-60 30)">
+      <rect x="130" y="310" width="270" height="86" rx="43"/><circle cx="225" cy="290" r="70"/><circle cx="318" cy="262" r="88"/></g></mask></defs>
+  <g transform="translate(-0 0)" fill="#fff">
+    <circle cx="352" cy="178" r="94" mask="url(#cut)"/>
+    <g transform="translate(-60 30)"><rect x="130" y="310" width="270" height="86" rx="43"/><circle cx="225" cy="290" r="70"/><circle cx="318" cy="262" r="88"/></g>
+  </g>
+</svg>
