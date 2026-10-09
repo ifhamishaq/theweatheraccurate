@@ -10,15 +10,13 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b1118">
 
-  <!-- Fonts: Instrument Serif (display) + Inter (interface) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Fonts are self-hosted (see style.css) -->
+  <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- API Preconnects -->
   <link rel="preconnect" href="https://api.open-meteo.com">
   <link rel="preconnect" href="https://air-quality-api.open-meteo.com">
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
 
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2210%22 fill=%22%23e9d8a6%22/></svg>">
   <link rel="stylesheet" href="style.css">
@@ -97,6 +95,11 @@
           <button type="button" class="accent-dot dot-emerald" data-accent="emerald" aria-label="Sage accent"></button>
         </div>
 
+        <button id="installBtn" type="button" class="install-btn hidden" title="Install the app">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>
+          <span>Install</span>
+        </button>
+
         <select id="langSelect" class="lang-select" aria-label="Language">
           <option value="en">EN</option>
           <option value="ur">اردو</option>
@@ -108,6 +111,11 @@
         <button id="speakBriefingBtn" type="button" class="icon-btn btn-voice-briefing" title="Read the briefing aloud" aria-label="Read the briefing aloud">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"></path></svg>
           <span id="voiceBtnText" class="sr-only">Voice</span>
+        </button>
+
+        <button id="notifyBtn" type="button" class="icon-btn" title="Notifications" aria-label="Notification settings" aria-haspopup="dialog">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+          <span id="notifyDot" class="notify-dot hidden" aria-hidden="true"></span>
         </button>
 
         <button id="themeToggleBtn" type="button" class="icon-btn btn-theme-toggle" title="Toggle light / dark" aria-label="Toggle light or dark mode">
@@ -343,13 +351,44 @@
 
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+
+  <!-- Notification settings -->
+  <dialog id="notifyDialog" class="sheet" aria-labelledby="notifyTitle">
+    <form method="dialog" class="sheet-inner">
+      <header class="sheet-head">
+        <h2 id="notifyTitle">Notifications</h2>
+        <button value="close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <p id="notifyStatus" class="sheet-note"></p>
+
+      <div id="notifyOptions" class="sheet-options">
+        <label class="switch-row">
+          <span><strong>Morning summary</strong><small>Today's weather at a glance</small></span>
+          <input type="checkbox" id="prefMorning" role="switch">
+        </label>
+        <div class="time-row" id="morningTimeRow">
+          <label for="prefTime">Send at</label>
+          <input type="time" id="prefTime" value="07:30">
+        </div>
+        <label class="switch-row">
+          <span><strong>Rain alerts</strong><small>When rain is likely in the next 2 hours</small></span>
+          <input type="checkbox" id="prefRain" role="switch">
+        </label>
+        <label class="switch-row">
+          <span><strong>Severe weather</strong><small>Thunderstorms and strong winds</small></span>
+          <input type="checkbox" id="prefSevere" role="switch">
+        </label>
+      </div>
+
+      <div class="sheet-actions">
+        <button type="button" id="notifyTest" class="btn-ghost">Send a test</button>
+        <button type="button" id="notifyEnable" class="btn-solid">Turn on notifications</button>
+      </div>
+      <p id="notifyHelp" class="sheet-fine"></p>
+    </form>
+  </dialog>
+
+  <script src="notify-core.js"></script>
   <script src="app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(function() {});
-    }
-  </script>
 </body>
 </html>

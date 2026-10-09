@@ -1,60 +1,43 @@
+# The Weather Accurate
 
-
-## Overview
-
-The Weather Accurate is a modern, single-page weather application built with HTML, CSS, and JavaScript. It leverages the Open Meteo API to provide real-time weather data, forecasts, and location-based services without requiring an API key. The app features a sleek glassmorphic design, smooth animations for various weather conditions, and an intuitive user interface that adapts to desktop and mobile devices.
-
-This project demonstrates best practices in web development, including responsive design, API integration, geolocation handling, and performance-optimized animations. It's completely free to use and modify, making it ideal for learning or personal weather tracking.
+A fast, installable weather app: live conditions, 24-hour and 7-day forecasts, air quality, UV, wind, sun and moon, powered by [Open-Meteo](https://open-meteo.com) (no API key). Plain HTML, CSS and JavaScript, with no build step.
 
 ## Features
 
-- **Automatic Location Detection**: Uses HTML5 Geolocation API for instant weather based on your current position, with graceful fallback if permission is denied.
-- **City Search**: Enter a city name and press Enter to fetch weather data directly; includes debounced input for efficient API calls.
-- **Comprehensive Weather Display**:
-  - Current conditions: Temperature, "feels like" temperature, humidity, wind speed/direction.
-  - Hourly forecast for the next 24 hours (in 3-hour intervals).
-  - 7-day daily forecast with high/low temperatures.
-- **Temperature Unit Toggle**: Switch between Celsius and Fahrenheit, with preferences saved in local storage.
-- **Weather-Specific Animations**:
-  - Lens glare effects for sunny conditions.
-  - Realistic snowflake falling for snowy weather.
-  - Heavy rain overlay (CSS-based, no flashing lightning) for thunderstorms (triggered by WMO codes 95/96/99).
-  - Smooth transitions and particle effects that update dynamically on location change.
-- **Glassmorphic UI**: Premium design with backdrop filters, multi-layered cards, and subtle gradients for a classy, professional look.
-- **Error Handling**: Robust management of API errors, geolocation issues, and network problems with user-friendly messages.
-- **Responsive Design**: Fully adaptable to all screen sizes using CSS Grid and Flexbox.
-- **Accessibility**: Semantic HTML, ARIA labels, and keyboard navigation support.
+- **Live weather for any city** with automatic location, search, saved cities and quick presets.
+- **City-local time everywhere**: day/night icons, the hourly strip and the sun arc follow the city's clock, not yours.
+- **Editorial design**: Instrument Serif and Inter, light and dark themes, four accents, and animation that respects *reduced motion*.
+- **Share**: draws a clean 1080×1350 weather card and opens the native share sheet (or downloads the image).
+- **Installable (PWA)**: install button, home-screen icons incl. Android maskable, a "my location" shortcut, and full offline support with the last known forecast.
+- **Notifications**: optional morning summary, rain-soon alerts and severe-weather warnings (see below).
+- **Fast**: self-hosted fonts and Chart.js (no third-party requests besides the weather APIs), charts load after first paint, one air-quality request, animations pause in background tabs.
 
-## Technologies Used
+## Run it
 
-- **Frontend**: HTML5, CSS3 (including animations from sources like Foolish Developer for rain effects), Vanilla JavaScript.
-- **API**: Open Meteo (Forecast and Geocoding endpoints).
-- **Fonts**: Professional stack including SF Pro Display, Helvetica Neue, and system fallbacks for a clean, app-like typography.
-- **Animations**: CSS keyframe animations and JavaScript for dynamic weather effects (e.g., particles for snow/rain, lens glare for sun).
-- **Other**: Local Storage for user preferences, Canvas for advanced particle systems.
+Serve the folder with any static server (service workers need `http://localhost` or HTTPS):
 
-## Usage
+```bash
+npx serve .      # or: python3 -m http.server 8080
+```
 
-1. **Launch the App**: Open `index.html` in a browser.
-2. **Grant Location Access**: On first load, allow geolocation for automatic weather data.
-3. **Search Locations**: Type a city name in the search bar and press Enter to view weather for that location.
-4. **Toggle Units**: Click the unit button to switch between °C and °F.
-5. **View Forecasts**: Scroll through hourly and daily sections; animations will adapt to the current weather.
+## Notifications: how they work
 
-The app is optimized for Chrome, Firefox, Safari, and Edge. Test on different devices for the full responsive experience.
+Settings live behind the bell icon. Preferences and the current city are stored in IndexedDB so the service worker can read them.
 
-## Screenshots
+- While the app is open, it checks every 10 minutes.
+- On Chrome for Android with the app installed, it also registers a **Periodic Background Sync** (`weather-check`) so alerts can arrive when the app is closed. The browser decides the exact timing, so delivery can vary by a few hours.
+- iOS supports notifications only for apps added to the Home Screen, and has no background sync.
 
+Guaranteed on-time delivery requires a small push server (Web Push with VAPID keys). The decision logic in `notify-core.js` is shared and can be reused there.
 
-- **Main Interface**: Glassmorphic cards with current weather.
-- **Sunny Animation**: Lens glare effects.
-- **Thunderstorm**: Heavy rain overlay.
-- **Snow**: Falling snowflakes.
+## Project layout
 
+| Path | Purpose |
+| --- | --- |
+| `index.html`, `style.css`, `app.js` | The app |
+| `notify-core.js` | Notification rules and storage (used by page and service worker) |
+| `sw.js` | Offline caching, notifications, background sync |
+| `manifest.json` | Install metadata, icons, shortcuts, screenshots |
+| `assets/` | Fonts (OFL), Chart.js (MIT), icons, screenshots |
 
-## Acknowledgments
-
-- Open Meteo API for free weather data.
-- Inspiration from modern weather apps like Apple's iOS Weather.
-- CSS animation resources, including Foolish Developer's rain effects tutorial.
-
+Developed by Ifham.

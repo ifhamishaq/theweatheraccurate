@@ -23,8 +23,6 @@ var state = {
 };
 
 // Performance: detect mobile for reduced rendering
-var isMobileDevice = window.innerWidth <= 768;
-window.addEventListener('resize', function() { isMobileDevice = window.innerWidth <= 768; });
 
 // === PERFORMANCE UTILITIES ===
 var weatherCache = {};
@@ -40,7 +38,7 @@ function debounce(fn, ms) {
 }
 
 // Toast notification system
-function showToast(msg, type) {
+function showToast(msg, type, ms) {
   var container = document.getElementById('toastContainer');
   if (!container) return;
   var toast = document.createElement('div');
@@ -51,7 +49,7 @@ function showToast(msg, type) {
   setTimeout(function() {
     toast.classList.remove('toast-visible');
     setTimeout(function() { if (toast.parentNode) toast.remove(); }, 350);
-  }, 3200);
+  }, ms || 3200);
 }
 
 // Haptic feedback
@@ -172,46 +170,51 @@ function getSolarPhase(now, sunriseStr, sunsetStr, isDay) {
   return 'day';
 }
 
-// --- Weather line icons (single stroke weight, tinted only where it means something) ---
+// --- Weather icons: thin outline + soft duotone fill; warm only for sun / lightning ---
 function getWeatherIcon(code, solarPhase) {
   var info = WEATHER_CODES[code] || { theme: 'sunny', isClear: true };
   var night = solarPhase === 'night';
-  var rays = '<g class="wi-rays wi-warm">' +
+  var rays = '<g class="wi-rays">' +
     [0, 45, 90, 135, 180, 225, 270, 315].map(function(a) {
-      return '<line x1="32" y1="7" x2="32" y2="12" transform="rotate(' + a + ' 32 32)"/>';
+      return '<line class="wi-ray" x1="32" y1="8" x2="32" y2="13" transform="rotate(' + a + ' 32 32)"/>';
     }).join('') + '</g>';
-  var sun = rays + '<circle class="wi-warm" cx="32" cy="32" r="12"/>';
-  var moon = '<path class="wi-moon" d="M40 14a18 18 0 1 0 12 30A15 15 0 0 1 40 14z"/>' +
-    '<path class="wi-star wi-soft" d="M50 12v6M47 15h6"/>';
-  var cloudPath = 'M20 46h26a9 9 0 0 0 .8-17.96A13 13 0 0 0 21.6 31.5 7.6 7.6 0 0 0 20 46z';
+  var sun = rays + '<circle class="wi-sun" cx="32" cy="32" r="12"/>';
+  var moonPath = 'M41 13a19 19 0 1 0 11 32A16 16 0 0 1 41 13z';
+  var moon = '<path class="wi-moon" d="' + moonPath + '"/>' +
+    '<path class="wi-star" d="M49 11v6M46 14h6"/><path class="wi-star" d="M14 14v4M12 16h4"/>';
+  var cloudPath = 'M20 47h26a9.5 9.5 0 0 0 .9-18.95A13.5 13.5 0 0 0 21.3 31.2 8 8 0 0 0 20 47z';
   var cloud = '<path class="wi-cloud" d="' + cloudPath + '"/>';
-  var smallCloud = '<path class="wi-cloud" transform="translate(4 8)" d="' + cloudPath + '"/>';
-  var drops = '<path class="wi-drop" d="M24 52v6"/><path class="wi-drop" d="M33 52v6"/><path class="wi-drop" d="M42 52v6"/>';
-  var flakes = '<path class="wi-flake" d="M25 55h.01M33 58h.01M41 55h.01" stroke-width="3"/>';
+  var raised = '<g transform="translate(0 -6)">' + cloud + '</g>';
+  var drops = '<path class="wi-drop" d="M24 50l-1.2 5"/><path class="wi-drop" d="M33 50l-1.2 5"/><path class="wi-drop" d="M42 50l-1.2 5"/>';
+  function flake(x, y) {   // positioned by an outer group so the drift animation can't override it
+    return '<g transform="translate(' + x + ' ' + y + ')"><g class="wi-flake"><path d="M0-3.2v6.4M-2.8-1.6l5.6 3.2M-2.8 1.6l5.6-3.2"/></g></g>';
+  }
   var inner;
 
   if (info.isClear) {
     inner = night ? moon : sun;
   } else if (code === 2) {
-    var cutout = '<mask id="wiCloudCut"><rect width="64" height="64" fill="#fff"/><path transform="translate(4 8)" d="' + cloudPath + '" fill="#000" stroke="#000" stroke-width="5"/></mask>';
-    inner = cutout + '<g mask="url(#wiCloudCut)">' + (night
-      ? '<path class="wi-moon" transform="translate(-6 -10) scale(.8)" d="M40 14a18 18 0 1 0 12 30A15 15 0 0 1 40 14z"/>'
-      : '<g transform="translate(10 -8) scale(.7)">' + sun + '</g>') + '</g>' + smallCloud;
+    // Partly cloudy: the sun/moon is masked where the cloud passes in front of it
+    var cut = '<mask id="wiCloudCut"><rect x="-10" y="-10" width="84" height="84" fill="#fff"/>' +
+      '<path transform="translate(5 9)" d="' + cloudPath + '" fill="#000" stroke="#000" stroke-width="9"/></mask>';
+    inner = cut + '<g mask="url(#wiCloudCut)">' + (night
+      ? '<path class="wi-moon" transform="translate(-4 -5) scale(.78)" d="' + moonPath + '"/>'
+      : '<g transform="translate(9 -5) scale(.72)">' + sun + '</g>') + '</g>' +
+      '<g transform="translate(5 9)">' + cloud + '</g>';
   } else if (code === 45 || code === 48) {
-    inner = '<path d="M12 24h40M8 33h44M16 42h40M12 51h30" class="wi-soft"/>' + '<path d="M18 20h28" />';
+    inner = '<g transform="translate(0 -8)">' + cloud + '</g>' +
+      '<path class="wi-fog" d="M14 46h36M20 53h28"/>';
   } else if (info.theme === 'snow') {
-    inner = '<g transform="translate(0 -6)">' + cloud + '</g>' + flakes;
+    inner = raised + flake(24, 52) + flake(33, 56) + flake(42, 52);
   } else if (info.theme === 'thunderstorm') {
-    inner = '<g transform="translate(0 -6)">' + cloud + '</g>' +
-      '<path class="wi-bolt wi-bolt-anim" d="M34 41l-7 11h7l-3 9 10-13h-7l3-7z"/>';
+    inner = raised + '<path class="wi-bolt wi-bolt-anim" d="M34.5 41L27 52h7l-3 9 10.5-13H34z"/>';
   } else if (code === 3) {
-    inner = cloud;
+    inner = '<g transform="translate(0 2)">' + cloud + '</g>';
   } else {
-    inner = '<g transform="translate(0 -6)">' + cloud + '</g>' + drops;
+    inner = raised + drops;
   }
   return '<svg class="wi" viewBox="0 0 64 64" role="img" aria-hidden="true">' + inner + '</svg>';
 }
-function getFrostedGlassMascotSVG(code, solarPhase) { return getWeatherIcon(code, solarPhase); }
 
 
 // Status colour ramp for progress bars (quiet green -> amber -> clay)
@@ -259,6 +262,24 @@ function cssVar(name, fallback) {
   return v || fallback;
 }
 
+
+// Chart.js is self-hosted and loaded after first paint, so it never blocks rendering
+var chartLoader = null;
+var chartFailed = false;
+function ensureChart() {
+  if (typeof Chart !== 'undefined') return Promise.resolve();
+  if (chartLoader) return chartLoader;
+  chartLoader = new Promise(function(resolve, reject) {
+    var el = document.createElement('script');
+    el.src = 'assets/vendor/chart.umd.js';
+    el.async = true;
+    el.onload = resolve;
+    el.onerror = function() { chartLoader = null; reject(new Error('chart load failed')); };
+    document.head.appendChild(el);
+  });
+  return chartLoader;
+}
+
 function $(id) { return document.getElementById(id); }
 function $$(sel) { return document.querySelectorAll(sel); }
 
@@ -300,7 +321,7 @@ function fetchWeatherData(lat, lon) {
   }
 
   var weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,weather_code,visibility,uv_index,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&past_days=1&forecast_days=8&timezone=auto';
-  var aqiUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone';
+  var aqiUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone,birch_pollen,grass_pollen,ragweed_pollen';
 
   return Promise.all([
     fetch(weatherUrl).then(function(r) { return r.json(); }),
@@ -546,7 +567,7 @@ function renderDashboard() {
   applyWeatherTheme(current.weather_code, solarPhase);
 
   var artworkBox = $('hero3DArtwork');
-  if (artworkBox) artworkBox.innerHTML = getFrostedGlassMascotSVG(current.weather_code, solarPhase);
+  if (artworkBox) artworkBox.innerHTML = getWeatherIcon(current.weather_code, solarPhase);
 
   animateNumber($('currentTemp'), formatTemp(current.temperature_2m));
   var symbol = document.querySelector('.temp-unit-symbol');
@@ -619,7 +640,6 @@ function renderDashboard() {
 }
 
 // Lightweight mini weather icon for performance on mobile hourly strips
-function getMiniWeatherIcon(code) { return getWeatherIcon(code, 'day'); }
 
 function renderHourlyStrip(hourly, sunriseStr, sunsetStr) {
   var container = $('hourlyForecast');
@@ -683,7 +703,7 @@ function renderDailyForecast(daily) {
     row.className = 'daily-item-row';
     row.innerHTML = 
       '<span class="d-day-name">' + dayName + '</span>' +
-      '<div class="d-icon-box">' + getFrostedGlassMascotSVG(daily.weather_code[idx], 'day') + '</div>' +
+      '<div class="d-icon-box">' + getWeatherIcon(daily.weather_code[idx], 'day') + '</div>' +
       '<div class="d-bar-container">' +
         '<div class="d-bar-fill-gradient" style="left: ' + leftPct + '%; width: ' + widthPct + '%;"></div>' +
       '</div>' +
@@ -731,6 +751,10 @@ function renderDailyForecast(daily) {
 function renderChart(hourly) {
   var canvas = $('tempChart');
   if (!canvas) return;
+  if (typeof Chart === 'undefined' && !chartFailed) {
+    ensureChart().then(function() { renderChart(hourly); }, function() { chartFailed = true; renderChart(hourly); });
+    return;
+  }
   var ctx = canvas.getContext('2d');
   var nowHour = nowHourIndex(hourly);
 
@@ -1013,6 +1037,7 @@ function drawNativeInteractiveChart(ctx, canvas, temps, labels, pops, codes, mLa
 
 function loadLocationWeather(lat, lon, name, country) {
   state.location = { lat: lat, lon: lon, name: name || 'Pristina', country: country || '' };
+  if (window.WeatherNotify && typeof notifyPrefs !== 'undefined' && notifyPrefs.enabled) syncNotifyLocation();
   
   localStorage.setItem('user_last_lat', lat);
   localStorage.setItem('user_last_lon', lon);
@@ -1296,11 +1321,8 @@ function renderRainTimeline(hourly) {
 }
 
 // F2: AQI Breakdown
-function fetchAQIBreakdown(lat, lon) {
-  var url = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone';
-  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
-    if (d && d.current) renderAQIBreakdown(d.current);
-  }).catch(function() {});
+function fetchAQIBreakdown() {
+  if (state.aqi && state.aqi.current) renderAQIBreakdown(state.aqi.current);
 }
 function renderAQIBreakdown(data) {
   var grid = $('aqiBreakdownGrid');
@@ -1372,40 +1394,153 @@ function renderMoonPhase() {
   }
 }
 
-// F4: Share Weather Card as Image
-function shareWeatherCard() {
-  var card = $('mainCard');
-  if (!card) return;
-  showToast('Generating image...', 'info');
-  if (typeof html2canvas === 'undefined') {
-    showToast('Share feature loading...', 'info');
-    return;
-  }
-  html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true }).then(function(canvas) {
-    canvas.toBlob(function(blob) {
-      if (navigator.share && navigator.canShare) {
-        var file = new File([blob], 'weather.png', { type: 'image/png' });
-        navigator.share({ title: 'Weather - ' + state.location.name, files: [file] }).catch(function() {
-          downloadBlob(blob);
-        });
-      } else {
-        downloadBlob(blob);
-      }
-      showToast('Weather card exported!', 'success');
+// F4: Share — draws a clean 1080x1350 card straight onto a canvas (no DOM screenshot, works offline)
+function iconToImage(svgMarkup, ink, warm, accent) {
+  var css = '.wi{fill:none;stroke:' + ink + ';stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}' +
+    '.wi-cloud{fill:' + ink + ';fill-opacity:.1}.wi-sun{stroke:' + warm + ';fill:' + warm + ';fill-opacity:.22}.wi-ray{stroke:' + warm + '}' +
+    '.wi-moon{fill:' + ink + ';fill-opacity:.14}.wi-bolt{stroke:' + warm + ';fill:' + warm + ';fill-opacity:.55}' +
+    '.wi-drop{stroke:' + accent + ';stroke-width:2.2}.wi-flake{stroke-width:1.2}.wi-fog{opacity:.55}.wi-star{opacity:.7}';
+  var svg = svgMarkup.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" ')
+    .replace('>', '><style>' + css + '</style>');
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    img.onload = function() { resolve(img); };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+}
+
+function buildShareCanvas() {
+  var w = state.weather, c = w.current, d = w.daily;
+  var di = todayIndex(d);
+  var now = locationNow();
+  var phase = getSolarPhase(now, d.sunrise[di], d.sunset[di], c.is_day);
+  var light = document.body.classList.contains('light-theme');
+  var bg = cssVar('--bg', '#090d12'), ink = cssVar('--ink', '#eef1f4');
+  var ink2 = cssVar('--ink-2', 'rgba(238,241,244,.68)'), ink3 = cssVar('--ink-3', 'rgba(238,241,244,.42)');
+  var warm = cssVar('--warm', '#e9c986'), accent = cssVar('--accent', '#8fc4e8');
+  var sky1 = cssVar('--sky-1', 'rgba(72,120,168,.55)'), sky2 = cssVar('--sky-2', 'rgba(30,52,84,.45)');
+  var line = cssVar('--line-strong', 'rgba(255,255,255,.18)');
+  var W = 1080, H = 1350, serif = '"Instrument Serif", "Iowan Old Style", Georgia, serif', sans = 'Inter, system-ui, sans-serif';
+
+  var fontsReady = (document.fonts && document.fonts.load)
+    ? Promise.all([document.fonts.load('200px "Instrument Serif"'), document.fonts.load('italic 40px "Instrument Serif"'), document.fonts.load('500 30px Inter')]).catch(function() {})
+    : Promise.resolve();
+
+  return Promise.all([iconToImage(getWeatherIcon(c.weather_code, phase), ink, warm, accent), fontsReady]).then(function(res) {
+    var cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var g = cv.getContext('2d');
+
+    // sky
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    var r1 = g.createRadialGradient(W * 0.2, 0, 0, W * 0.2, 0, W * 0.95);
+    r1.addColorStop(0, sky1); r1.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = r1; g.fillRect(0, 0, W, H);
+    var r2 = g.createRadialGradient(W * 0.9, H * 0.08, 0, W * 0.9, H * 0.08, W * 0.85);
+    r2.addColorStop(0, sky2); r2.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = r2; g.fillRect(0, 0, W, H);
+
+    var pad = 90;
+    g.textBaseline = 'alphabetic';
+
+    // brand + date
+    g.fillStyle = ink; g.font = '44px ' + serif; g.textAlign = 'left';
+    g.fillText('The Weather ', pad, 120);
+    var bw = g.measureText('The Weather ').width;
+    g.fillStyle = ink2; g.font = 'italic 44px ' + serif; g.fillText('Accurate', pad + bw, 120);
+    g.fillStyle = ink3; g.font = '500 26px ' + sans; g.textAlign = 'right';
+    g.fillText(now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }), W - pad, 118);
+
+    // city
+    g.textAlign = 'left'; g.fillStyle = ink; g.font = '84px ' + serif;
+    var city = state.location.name + (state.location.country ? ', ' + state.location.country : '');
+    while (g.measureText(city).width > W - pad * 2 && city.length > 4) city = city.slice(0, -2);
+    g.fillText(city, pad, 270);
+
+    // icon
+    g.drawImage(res[0], W - pad - 520, 300, 520, 520);
+
+    // temperature
+    g.fillStyle = ink; g.font = '330px ' + serif;
+    var t = String(formatTemp(c.temperature_2m));
+    g.fillText(t, pad - 8, 700);
+    var tw = g.measureText(t).width;
+    g.fillStyle = ink3; g.font = '96px ' + serif;
+    g.fillText(state.unit === 'fahrenheit' ? '°F' : '°C', pad + tw + 6, 560);
+
+    // condition
+    var info = WEATHER_CODES[c.weather_code] || { description: 'Clear Sky' };
+    g.fillStyle = ink2; g.font = 'italic 70px ' + serif;
+    g.fillText(info.description, pad, 800);
+
+    // stats
+    g.strokeStyle = line; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(pad, 900); g.lineTo(W - pad, 900); g.stroke();
+    var windUnit = state.unit === 'fahrenheit' ? 'mph' : 'km/h';
+    var windVal = state.unit === 'fahrenheit' ? Math.round(c.wind_speed_10m * 0.621371) : Math.round(c.wind_speed_10m);
+    var stats = [
+      ['FEELS LIKE', formatTemp(c.apparent_temperature) + '°'],
+      ['HIGH / LOW', formatTemp(d.temperature_2m_max[di]) + '° / ' + formatTemp(d.temperature_2m_min[di]) + '°'],
+      ['HUMIDITY', c.relative_humidity_2m + '%'],
+      ['WIND', windVal + ' ' + windUnit]
+    ];
+    var colW = (W - pad * 2) / 2;
+    stats.forEach(function(st, i) {
+      var x = pad + (i % 2) * colW, y = 970 + Math.floor(i / 2) * 150;
+      g.fillStyle = ink3; g.font = '500 24px ' + sans; g.textAlign = 'left';
+      g.fillText(st[0].split('').join(String.fromCharCode(8202)), x, y);
+      g.fillStyle = ink; g.font = '64px ' + serif;
+      g.fillText(st[1], x, y + 68);
     });
-  }).catch(function() {
-    showToast('Failed to generate image', 'error');
+
+    // footer
+    g.fillStyle = ink3; g.font = '500 24px ' + sans; g.textAlign = 'left';
+    g.fillText('Data by Open-Meteo', pad, H - 70);
+    g.textAlign = 'right';
+    g.fillText(now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' local time', W - pad, H - 70);
+    return cv;
+  });
+}
+
+function shareWeatherCard() {
+  if (!state.weather || !state.weather.current) { showToast('Weather is still loading', 'info'); return; }
+  showToast('Preparing your card…', 'info', 1500);
+  buildShareCanvas().then(function(canvas) {
+    return new Promise(function(resolve, reject) {
+      canvas.toBlob(function(blob) { blob ? resolve(blob) : reject(new Error('empty')); }, 'image/png');
+    });
+  }).then(function(blob) {
+    var name = 'weather-' + state.location.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
+    var file = new File([blob], name, { type: 'image/png' });
+    var c = state.weather.current;
+    var text = state.location.name + ': ' + formatTemp(c.temperature_2m) + '° and ' +
+      (WEATHER_CODES[c.weather_code] || { description: 'clear' }).description.toLowerCase();
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      return navigator.share({ files: [file], title: 'Weather in ' + state.location.name, text: text })
+        .then(function() { showToast('Shared', 'success'); })
+        .catch(function(err) {
+          if (err && err.name === 'AbortError') return;           // user closed the share sheet
+          downloadBlob(blob); showToast('Image saved', 'success');
+        });
+    }
+    downloadBlob(blob);
+    showToast('Image saved to your downloads', 'success');
+  }).catch(function(err) {
+    console.error('Share failed', err);
+    showToast('Could not create the image', 'error');
   });
 }
 function downloadBlob(blob) {
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'weather-' + state.location.name.toLowerCase().replace(/\s+/g, '-') + '.png';
+  a.download = 'weather-' + state.location.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 }
 
 // F5: Dynamic Weather Particles
@@ -1449,30 +1584,29 @@ function renderMultiCityDashboard() {
 }
 
 // F7: Pollen Index
-function fetchPollenData(lat, lon) {
-  var url = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=birch_pollen,grass_pollen,ragweed_pollen';
-  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
-    if (d && d.current) {
-      var total = (d.current.grass_pollen || 0) + (d.current.birch_pollen || 0) + (d.current.ragweed_pollen || 0);
-      var cat = 'Low';
-      if (total > 50) cat = 'Moderate';
-      if (total > 150) cat = 'High';
-      if (total > 300) cat = 'Very High';
-      var valEl = $('pollenValue');
-      var catEl = $('pollenCategory');
-      var progEl = $('pollenProgress');
-      if (valEl) valEl.textContent = Math.round(total);
-      if (catEl) catEl.textContent = cat;
-      if (progEl) setBar('pollenProgress', total / 400);
-    }
-  }).catch(function() {});
+function fetchPollenData() {
+  var c = state.aqi && state.aqi.current;
+  if (!c) return;
+  var total = (c.grass_pollen || 0) + (c.birch_pollen || 0) + (c.ragweed_pollen || 0);
+  var cat = 'Low';
+  if (total > 50) cat = 'Moderate';
+  if (total > 150) cat = 'High';
+  if (total > 300) cat = 'Very High';
+  var valEl = $('pollenValue');
+  var catEl = $('pollenCategory');
+  if (valEl) valEl.textContent = Math.round(total);
+  if (catEl) catEl.textContent = cat;
+  setBar('pollenProgress', total / 400);
 }
 
 // F8: Weather History Graph
 function renderWeatherHistory(daily) {
   var canvas = $('historyChart');
   if (!canvas || !daily || !daily.temperature_2m_max) return;
-  if (typeof Chart === 'undefined') return;
+  if (typeof Chart === 'undefined') {
+    if (!chartFailed) ensureChart().then(function() { renderWeatherHistory(daily); }, function() { chartFailed = true; });
+    return;
+  }
 
   var labels = daily.time.map(function(t) {
     return new Date(t + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
@@ -1592,7 +1726,11 @@ function setupThemeToggle() {
   var btn = $('themeToggleBtn');
   var icon = $('themeIcon');
   var savedTheme = localStorage.getItem('weather_theme_mode');
-  if (savedTheme === 'light') document.body.classList.add('light-theme');
+  if (savedTheme === 'light') {
+    document.body.classList.add('light-theme');
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', '#f3efe8');
+  }
   
   if (btn) {
     btn.onclick = function() {
@@ -1603,6 +1741,8 @@ function setupThemeToggle() {
         ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'
         : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
       haptic('light');
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', isLight ? '#f3efe8' : '#0b1118');
       showToast(isLight ? 'Light mode' : 'Dark mode', 'info');
       if (state.weather) { renderChart(state.weather.hourly); renderWeatherHistory(state.weather.daily); }
     };
@@ -1622,8 +1762,213 @@ function setupLanguageSelector() {
   };
 }
 
+
+// ==========================================================================
+// PWA: service worker, install prompt, notifications
+// ==========================================================================
+var deferredInstall = null;
+var swReg = null;
+var isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+  return navigator.serviceWorker.register('./sw.js').then(function(reg) {
+    swReg = reg;
+    reg.addEventListener('updatefound', function() {
+      var nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', function() {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) showToast('Updated. New version loads next visit', 'info', 4000);
+      });
+    });
+    return reg;
+  }).catch(function() { return null; });
+}
+
+function setupInstall() {
+  var btn = $('installBtn');
+  if (!btn || isStandalone) return;
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstall = e;
+    btn.classList.remove('hidden');
+  });
+  window.addEventListener('appinstalled', function() {
+    deferredInstall = null;
+    btn.classList.add('hidden');
+    showToast('App installed', 'success');
+  });
+  // iOS has no install prompt: show the button and explain the manual steps
+  if (isIOS) btn.classList.remove('hidden');
+
+  btn.onclick = function() {
+    haptic('light');
+    if (deferredInstall) {
+      deferredInstall.prompt();
+      deferredInstall.userChoice.then(function() { deferredInstall = null; btn.classList.add('hidden'); });
+    } else if (isIOS) {
+      showToast('Tap the Share icon, then "Add to Home Screen"', 'info', 6000);
+    }
+  };
+}
+
+// ---- Notifications ----
+var NOTIFY_DEFAULTS = { enabled: false, morning: true, morningTime: '07:30', rain: true, severe: true };
+var notifyPrefs = JSON.parse(JSON.stringify(NOTIFY_DEFAULTS));
+
+function notifySupported() { return 'Notification' in window && 'serviceWorker' in navigator; }
+
+function persistNotifyPrefs() {
+  notifyPrefs.unit = state.unit;
+  localStorage.setItem('weather_notify_prefs', JSON.stringify(notifyPrefs));
+  if (window.WeatherNotify) {
+    WeatherNotify.kvSet('prefs', notifyPrefs).catch(function() {});
+    syncNotifyLocation();
+  }
+}
+function syncNotifyLocation() {
+  if (!window.WeatherNotify) return;
+  var l = state.location;
+  WeatherNotify.kvSet('location', { lat: l.lat, lon: l.lon, name: l.name }).catch(function() {});
+}
+
+function scheduleNotifyChecks() {
+  if (!swReg || !notifyPrefs.enabled || Notification.permission !== 'granted') return;
+  // Background checks (Chrome on Android, installed app): the browser decides exact timing
+  if (swReg.periodicSync && swReg.periodicSync.register) {
+    swReg.periodicSync.register('weather-check', { minInterval: 3 * 60 * 60 * 1000 }).catch(function() {});
+  }
+}
+
+var notifyTimer = null;
+function startNotifyLoop() {
+  clearInterval(notifyTimer);
+  if (!swReg || !notifyPrefs.enabled || Notification.permission !== 'granted') return;
+  var run = function() { WeatherNotify.runCheck(swReg); };
+  run();
+  notifyTimer = setInterval(run, 10 * 60 * 1000);   // while the app is open
+}
+
+function refreshNotifyUi() {
+  var status = $('notifyStatus'), help = $('notifyHelp'), opts = $('notifyOptions');
+  var enable = $('notifyEnable'), test = $('notifyTest'), dot = $('notifyDot');
+  if (!status) return;
+
+  var perm = notifySupported() ? Notification.permission : 'unsupported';
+  var on = perm === 'granted' && notifyPrefs.enabled;
+
+  $('prefMorning').checked = !!notifyPrefs.morning;
+  $('prefRain').checked = !!notifyPrefs.rain;
+  $('prefSevere').checked = !!notifyPrefs.severe;
+  $('prefTime').value = notifyPrefs.morningTime;
+  $('morningTimeRow').classList.toggle('is-hidden', !notifyPrefs.morning);
+  opts.classList.toggle('is-off', !on);
+  test.disabled = !on;
+  if (dot) dot.classList.toggle('hidden', !on);
+
+  if (perm === 'unsupported') {
+    status.textContent = isIOS && !isStandalone
+      ? 'On iPhone and iPad, notifications work once the app is added to your Home Screen.'
+      : 'This browser does not support notifications.';
+    enable.classList.add('hidden'); test.classList.add('hidden');
+  } else if (perm === 'denied') {
+    status.textContent = 'Notifications are blocked for this site. Allow them in your browser settings to turn them on.';
+    enable.classList.add('hidden');
+  } else if (on) {
+    status.textContent = 'On for ' + state.location.name + '. Alerts follow the city you are viewing.';
+    enable.textContent = 'Turn off'; enable.classList.remove('hidden');
+  } else {
+    status.textContent = 'Get a morning summary, rain alerts and severe-weather warnings.';
+    enable.textContent = 'Turn on notifications'; enable.classList.remove('hidden');
+  }
+
+  var tips = [];
+  if (!isStandalone) tips.push('Install the app for the most reliable delivery.');
+  tips.push('Your browser decides exactly when background checks run, so timing can vary by a few hours.');
+  help.textContent = tips.join(' ');
+}
+
+function setupNotifications() {
+  var btn = $('notifyBtn'), dlg = $('notifyDialog');
+  if (!btn || !dlg) return;
+  try { notifyPrefs = Object.assign({}, NOTIFY_DEFAULTS, JSON.parse(localStorage.getItem('weather_notify_prefs') || '{}')); } catch (e) {}
+  if (notifySupported() && Notification.permission !== 'granted') notifyPrefs.enabled = false;
+
+  btn.onclick = function() {
+    refreshNotifyUi();
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  };
+  dlg.addEventListener('click', function(e) { if (e.target === dlg) dlg.close(); });
+
+  $('notifyEnable').onclick = function() {
+    haptic('light');
+    if (notifyPrefs.enabled && Notification.permission === 'granted') {
+      notifyPrefs.enabled = false;
+      persistNotifyPrefs(); clearInterval(notifyTimer); refreshNotifyUi();
+      showToast('Notifications off', 'info');
+      return;
+    }
+    Notification.requestPermission().then(function(result) {
+      if (result === 'granted') {
+        notifyPrefs.enabled = true;
+        persistNotifyPrefs(); scheduleNotifyChecks(); startNotifyLoop();
+        showToast('Notifications on', 'success');
+      } else {
+        showToast('Permission was not granted', 'info');
+      }
+      refreshNotifyUi();
+    });
+  };
+
+  [['prefMorning', 'morning'], ['prefRain', 'rain'], ['prefSevere', 'severe']].forEach(function(pair) {
+    $(pair[0]).onchange = function() { notifyPrefs[pair[1]] = this.checked; persistNotifyPrefs(); refreshNotifyUi(); };
+  });
+  $('prefTime').onchange = function() {
+    notifyPrefs.morningTime = this.value || '07:30';
+    // let today's summary fire again if the user moves the time later
+    if (window.WeatherNotify) WeatherNotify.kvGet('memo').then(function(m) { m = m || {}; delete m.morning; return WeatherNotify.kvSet('memo', m); }).catch(function() {});
+    persistNotifyPrefs();
+  };
+
+  $('notifyTest').onclick = function() {
+    if (!swReg) return;
+    WeatherNotify.show(swReg, {
+      tag: 'test', title: 'Notifications are working',
+      body: state.location.name + ' is ' + (state.weather ? formatTemp(state.weather.current.temperature_2m) + '°' : 'ready') + '. This is how your alerts will look.'
+    });
+  };
+
+  if (notifySupported() && Notification.permission === 'granted' && notifyPrefs.enabled) {
+    persistNotifyPrefs(); scheduleNotifyChecks(); startNotifyLoop();
+  }
+  refreshNotifyUi();
+}
+
+// Pause animations while the tab is hidden; re-check alerts when the user comes back
+document.addEventListener('visibilitychange', function() {
+  document.body.classList.toggle('is-hidden', document.hidden);
+  if (!document.hidden && swReg && notifyPrefs.enabled && Notification.permission === 'granted' && window.WeatherNotify) {
+    WeatherNotify.runCheck(swReg);
+  }
+});
+
+function setupPWA() {
+  window.addEventListener('offline', function() { showToast('You are offline. Showing the last update', 'info', 4000); });
+  window.addEventListener('online', function() {
+    showToast('Back online', 'success');
+    if (state.location) loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
+  });
+  setupInstall();
+  registerServiceWorker().then(function() { setupNotifications(); });
+  var params = new URLSearchParams(location.search);
+  if (params.get('locate') === '1') autoDetectLocation();
+}
+
 function initApp() {
   setupReveal();
+  setupPWA();
   setupSearch();
   setupPresets();
   setupUnits();
