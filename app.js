@@ -257,6 +257,14 @@ function setupReveal() {
 }
 
 // Chart palette follows the active theme
+// rgb()/#hex -> rgba() with the given alpha (registered CSS colours come back as rgb())
+function withAlpha(color, a) {
+  var m = /^rgba?\(([^)]+)\)$/.exec(color);
+  if (m) { var p = m[1].split(/[ ,/]+/).filter(Boolean); return 'rgba(' + p[0] + ',' + p[1] + ',' + p[2] + ',' + a + ')'; }
+  m = /^#([0-9a-f]{6})$/i.exec(color);
+  if (m) { var n = parseInt(m[1], 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+  return color;
+}
 function cssVar(name, fallback) {
   var v = getComputedStyle(document.body).getPropertyValue(name).trim();
   return v || fallback;
@@ -313,10 +321,10 @@ function applyWeatherTheme(code, solarPhase) {
   if (card) card.className = 'hero-stage-card ' + cardTheme;
 }
 
-function fetchWeatherData(lat, lon) {
+function fetchWeatherData(lat, lon, force) {
   var cacheKey = lat.toFixed(2) + ',' + lon.toFixed(2);
   var cached = weatherCache[cacheKey];
-  if (cached && (Date.now() - cached.time < CACHE_TTL)) {
+  if (!force && cached && (Date.now() - cached.time < CACHE_TTL)) {
     return Promise.resolve(cached.data);
   }
 
@@ -550,6 +558,14 @@ function toggleBookmarkCity() {
 }
 
 function renderDashboard() {
+  var snap = snapshotText();
+  var hadData = !!document.body.dataset.rendered;
+  renderDashboardInner();
+  document.body.dataset.rendered = '1';
+  if (hadData) flashChanged(snap);
+}
+
+function renderDashboardInner() {
   var weather = state.weather;
   var aqi = state.aqi;
   var location = state.location;
@@ -567,7 +583,11 @@ function renderDashboard() {
   applyWeatherTheme(current.weather_code, solarPhase);
 
   var artworkBox = $('hero3DArtwork');
-  if (artworkBox) artworkBox.innerHTML = getWeatherIcon(current.weather_code, solarPhase);
+  if (artworkBox) {
+    var iconMarkup = getWeatherIcon(current.weather_code, solarPhase);
+    artworkBox.dataset.next = current.weather_code + ':' + solarPhase;
+    if (artworkBox.dataset.sig !== artworkBox.dataset.next) artworkBox.innerHTML = iconMarkup;
+  }
 
   animateNumber($('currentTemp'), formatTemp(current.temperature_2m));
   var symbol = document.querySelector('.temp-unit-symbol');
@@ -793,8 +813,8 @@ function renderChart(hourly) {
     var accent = cssVar('--accent', '#8fc4e8');
     var inkMuted = cssVar('--ink-3', 'rgba(255,255,255,0.45)');
     var gridLine = cssVar('--line', 'rgba(255,255,255,0.08)');
-    gradient.addColorStop(0, accent + '40');
-    gradient.addColorStop(1, accent + '00');
+    gradient.addColorStop(0, withAlpha(accent, 0.25));
+    gradient.addColorStop(1, withAlpha(accent, 0));
 
     var hairlinePlugin = {
       id: 'hairlineGuide',
@@ -1035,10 +1055,14 @@ function drawNativeInteractiveChart(ctx, canvas, temps, labels, pops, codes, mLa
   };
 }
 
-function loadLocationWeather(lat, lon, name, country) {
+var loadToken = 0;
+function loadLocationWeather(lat, lon, name, country, force) {
+  var prev = state.location;
+  var firstLoad = !state.weather;
+  var token = ++loadToken;
   state.location = { lat: lat, lon: lon, name: name || 'Pristina', country: country || '' };
   if (window.WeatherNotify && typeof notifyPrefs !== 'undefined' && notifyPrefs.enabled) syncNotifyLocation();
-  
+
   localStorage.setItem('user_last_lat', lat);
   localStorage.setItem('user_last_lon', lon);
   localStorage.setItem('user_last_name', name || 'Pristina');
@@ -1047,34 +1071,87 @@ function loadLocationWeather(lat, lon, name, country) {
   var input = $('citySearch');
   if (input) input.value = name || 'Pristina';
 
-  // Show loading state
-  document.body.classList.add('loading');
+  // First visit: skeleton. Every later refresh or city switch keeps the page and updates it in place.
   hideErrorState();
-  var pullIndicator = $('pullRefreshIndicator');
-  if (pullIndicator) pullIndicator.classList.remove('hidden');
+  // name the new city straight away so the tap feels instant; the numbers follow when data lands
+  var heroName = $('currentLocation');
+  if (heroName && !firstLoad && (!prev || prev.name !== state.location.name)) {
+    heroName.textContent = state.location.name + (state.location.country ? ', ' + state.location.country : '');
+    heroName.classList.remove('swap'); void heroName.offsetWidth; heroName.classList.add('swap');
+  }
+  setRefreshing(true, firstLoad);
+  var started = Date.now();
 
-  return fetchWeatherData(lat, lon).then(function(res) {
-    state.weather = res.weather;
-    state.aqi = res.aqi;
-    renderDashboard();
-    updateLastUpdated();
-    haptic('light');
-
-    // Hide loading
-    document.body.classList.remove('loading');
-    if (pullIndicator) pullIndicator.classList.add('hidden');
-
-    // Fetch supplementary data
-    fetchPollenData(lat, lon);
-    fetchAQIBreakdown(lat, lon);
-    renderMultiCityDashboard();
+  return fetchWeatherData(lat, lon, force).then(function(res) {
+    if (token !== loadToken) return;                 // a newer request superseded this one
+    // keep the shimmer visible long enough to read as a deliberate refresh, not a flicker
+    var wait = Math.max(0, 450 - (Date.now() - started));
+    return new Promise(function(r) { setTimeout(r, wait); }).then(function() {
+      if (token !== loadToken) return;
+      state.weather = res.weather;
+      state.aqi = res.aqi;
+      renderDashboard();
+      updateLastUpdated();
+      haptic('light');
+      setRefreshing(false, firstLoad);
+      fetchPollenData(lat, lon);
+      fetchAQIBreakdown(lat, lon);
+      renderMultiCityDashboard();
+    });
   }).catch(function(err) {
+    if (token !== loadToken) return;
     console.error('Error fetching weather data:', err);
-    document.body.classList.remove('loading');
-    if (pullIndicator) pullIndicator.classList.add('hidden');
-    showErrorState('Failed to load weather for ' + (name || 'this location') + '. Check your connection.');
-    showToast('Connection error', 'error');
+    setRefreshing(false, firstLoad);
+    if (state.weather) {
+      // keep what is on screen and go back to the city it belongs to
+      state.location = prev;
+      localStorage.setItem('user_last_lat', prev.lat);
+      localStorage.setItem('user_last_lon', prev.lon);
+      localStorage.setItem('user_last_name', prev.name);
+      localStorage.setItem('user_last_country', prev.country || '');
+      if (input) input.value = prev.name;
+      if (heroName) heroName.textContent = prev.name + (prev.country ? ', ' + prev.country : '');
+      showToast('Could not load ' + (name || 'that location') + '. Showing ' + prev.name, 'error', 4000);
+    } else {
+      showErrorState('Failed to load weather for ' + (name || 'this location') + '. Check your connection.');
+      showToast('Connection error', 'error');
+    }
   });
+}
+
+// Loading UI. firstLoad -> full skeleton; otherwise soft in-place shimmer + progress line + refresh pill
+function setRefreshing(on, firstLoad) {
+  var bar = $('pullRefreshIndicator');
+  if (bar) bar.classList.toggle('hidden', !on);
+  document.body.classList.toggle('refreshing', on && !firstLoad);
+  if (firstLoad) document.body.classList.toggle('loading', on);
+  var badge = $('lastUpdatedBadge');
+  if (badge) badge.classList.toggle('is-spinning', on);
+  if (!on) ptrFinish();
+}
+
+// Changed values swap in with a short fade/slide instead of snapping
+var SWAP_IDS = ['conditionText', 'currentLocation', 'badgeHumidity', 'badgeWind', 'badgeHighLow', 'uvValue', 'uvCategory',
+  'aqiValue', 'aqiCategory', 'windSpeed', 'windDirText', 'sunriseTime', 'sunsetTime', 'feelsLike', 'dewPoint',
+  'pressure', 'visibility', 'moonPhaseName', 'adviceHeadline', 'adviceBody'];
+function snapshotText() {
+  var snap = {};
+  SWAP_IDS.forEach(function(id) { var el = $(id); if (el) snap[id] = el.textContent; });
+  return snap;
+}
+function flashChanged(snap) {
+  SWAP_IDS.forEach(function(id) {
+    var el = $(id);
+    if (!el || snap[id] === undefined || snap[id] === el.textContent) return;
+    el.classList.remove('swap');
+    void el.offsetWidth;                              // restart the animation
+    el.classList.add('swap');
+  });
+  var art = $('hero3DArtwork');
+  if (art && art.dataset.sig !== undefined && art.dataset.sig !== art.dataset.next) {
+    art.classList.remove('swap-icon'); void art.offsetWidth; art.classList.add('swap-icon');
+  }
+  if (art) art.dataset.sig = art.dataset.next;
 }
 
 function setupSearch() {
@@ -1677,23 +1754,66 @@ function renderSunsetCountdown(sunriseStr, sunsetStr) {
 }
 
 // U1: Pull-to-Refresh
+// Pull-to-refresh: an elastic pill follows the finger; the page itself never reloads
+var ptr = { startY: 0, pulling: false, ready: false, dist: 0, busy: false };
+var PTR_THRESHOLD = 72;
+function ptrEl() { return $('ptrPill'); }
+function ptrSet(dist, animate) {
+  var el = ptrEl(); if (!el) return;
+  el.style.transition = animate ? '' : 'none';
+  el.style.opacity = Math.min(1, dist / 40);
+  el.style.transform = 'translate(-50%, ' + (dist - 56) + 'px) scale(' + (0.7 + Math.min(0.3, dist / 240)) + ')';
+  var icon = el.firstElementChild;
+  if (icon && !el.classList.contains('spinning')) icon.style.transform = 'rotate(' + (dist * 4) + 'deg)';
+}
+function ptrFinish() {
+  var el = ptrEl(); if (!el) return;
+  ptr.busy = false;
+  el.classList.remove('spinning', 'ready');
+  el.style.opacity = 0;
+  el.style.transition = '';
+  el.style.transform = 'translate(-50%, -60px) scale(.7)';
+}
+function manualRefresh() {
+  if (!state.location) return;
+  loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country, true);
+}
 function setupPullToRefresh() {
-  var startY = 0;
-  var pulling = false;
   document.addEventListener('touchstart', function(e) {
-    if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
+    if (ptr.busy || window.scrollY > 0 || e.touches.length !== 1) return;
+    if (e.target.closest && e.target.closest('.hourly-scroll-strip, .chart-canvas-box, .sheet, .quick-cities-row, .search-form')) return;
+    ptr.startY = e.touches[0].clientY; ptr.pulling = true; ptr.ready = false; ptr.dist = 0;
   }, { passive: true });
   document.addEventListener('touchmove', function(e) {
-    if (!pulling) return;
-    var diff = e.touches[0].clientY - startY;
-    if (diff > 80 && window.scrollY === 0) {
-      pulling = false;
-      haptic('heavy');
-      showToast('Refreshing...', 'info');
-      loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
+    if (!ptr.pulling) return;
+    var diff = e.touches[0].clientY - ptr.startY;
+    if (diff <= 0 || window.scrollY > 0) { if (diff <= 0) { ptr.pulling = false; ptrSet(0, true); } return; }
+    ptr.dist = Math.min(110, diff * 0.5);              // resistance
+    var wasReady = ptr.ready;
+    ptr.ready = ptr.dist >= PTR_THRESHOLD * 0.5 + 6;
+    var el = ptrEl();
+    if (el) el.classList.toggle('ready', ptr.ready);
+    if (ptr.ready && !wasReady) haptic('light');
+    ptrSet(ptr.dist, false);
+  }, { passive: true });
+  document.addEventListener('touchend', function() {
+    if (!ptr.pulling) return;
+    ptr.pulling = false;
+    var el = ptrEl();
+    if (ptr.ready && el) {
+      ptr.busy = true;
+      el.classList.add('spinning');
+      ptrSet(46, true);                                // hold just under the header while loading
+      manualRefresh();
+    } else {
+      ptrSet(0, true);
     }
   }, { passive: true });
-  document.addEventListener('touchend', function() { pulling = false; }, { passive: true });
+  document.addEventListener('touchcancel', function() { ptr.pulling = false; ptrSet(0, true); }, { passive: true });
+
+  // "Updated just now" doubles as a refresh button (desktop and touch)
+  var badge = $('lastUpdatedBadge');
+  if (badge) badge.onclick = function() { haptic('light'); manualRefresh(); };
 }
 
 // U4: Swipe Between Saved Cities
@@ -1961,7 +2081,7 @@ function setupPWA() {
   window.addEventListener('offline', function() { showToast('You are offline. Showing the last update', 'info', 4000); });
   window.addEventListener('online', function() {
     showToast('Back online', 'success');
-    if (state.location) loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
+    if (state.location) loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country, true);
   });
   setupInstall();
   registerServiceWorker().then(function() { setupNotifications(); });
@@ -2035,7 +2155,7 @@ function initApp() {
   if (retryBtn) {
     retryBtn.onclick = function() {
       hideErrorState();
-      loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country);
+      loadLocationWeather(state.location.lat, state.location.lon, state.location.name, state.location.country, true);
     };
   }
 

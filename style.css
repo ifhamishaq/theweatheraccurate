@@ -25,6 +25,12 @@
   src: url('assets/fonts/instrument-serif-latin-ext-400-italic.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 
+/* Registered colours: lets the sky and accent glide between conditions instead of snapping */
+@property --sky-1 { syntax: '<color>'; inherits: true; initial-value: rgba(72, 120, 168, 0.55); }
+@property --sky-2 { syntax: '<color>'; inherits: true; initial-value: rgba(30, 52, 84, 0.45); }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #8fc4e8; }
+@property --accent-soft { syntax: '<color>'; inherits: true; initial-value: rgba(143, 196, 232, 0.14); }
+
 :root {
   --font-display: 'Instrument Serif', 'Iowan Old Style', 'Times New Roman', serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -115,7 +121,8 @@ body.light-theme.weather-theme-snow         { --sky-1: rgba(190, 214, 234, 0.65)
   clip: rect(0 0 0 0); white-space: nowrap;
 }
 
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; overscroll-behavior-y: contain; }
+body { overscroll-behavior-y: contain; }
 
 body {
   min-height: 100vh;
@@ -130,7 +137,8 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'tnum' 1, 'cv11' 1;
-  transition: background-color 0.8s var(--ease-soft), color 0.4s var(--ease-soft);
+  transition: background-color 0.8s var(--ease-soft), color 0.4s var(--ease-soft),
+    --sky-1 1.6s var(--ease-soft), --sky-2 1.6s var(--ease-soft), --accent 0.6s var(--ease-soft), --accent-soft 0.6s var(--ease-soft);
 }
 
 ::selection { background: var(--accent-soft); }
@@ -1000,4 +1008,74 @@ body.is-hidden *, body.is-hidden *::before, body.is-hidden *::after { animation-
 @media (max-width: 560px) {
   .solar-arc-box { display: flex; justify-content: center; }
   .solar-arc-box svg { width: 100%; max-width: 260px; height: auto; }
+}
+
+
+/* ==========================================================================
+   Refreshing in place: the page stays put; values swap, never blank out
+   ========================================================================== */
+.temp-val, .tile-main-val, .tile-sub-val, .condition-name, .location-name, .time-stamp, .hero-stat dd,
+.val-md, .time-bold, .advice-headline, .advice-body, .d-high-low, .h-temp, .aqi-metric-val, .mini-city-temp {
+  transition: opacity 0.35s var(--ease-soft), filter 0.35s var(--ease-soft);
+}
+body.refreshing .temp-val, body.refreshing .tile-main-val, body.refreshing .tile-sub-val,
+body.refreshing .condition-name, body.refreshing .hero-stat dd, body.refreshing .val-md,
+body.refreshing .time-bold, body.refreshing .d-high-low, body.refreshing .h-temp, body.refreshing .aqi-metric-val {
+  opacity: 0.5; filter: blur(1px);
+}
+body.refreshing .hero-artwork-box { opacity: 0.45; transition: opacity 0.35s; }
+
+/* a soft light sweep across every card while data is on its way */
+body.refreshing .hero-stage-card::after, body.refreshing .panel::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+  background: linear-gradient(100deg, transparent 25%, color-mix(in srgb, var(--ink) 9%, transparent) 50%, transparent 75%);
+  background-size: 260% 100%; background-repeat: no-repeat;
+  animation: cardSweep 1.5s var(--ease-soft) infinite;
+}
+@keyframes cardSweep { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+body.refreshing .d-bar-fill-gradient, body.refreshing .rain-bar-segment { opacity: 0.4; transition: opacity 0.3s; }
+
+/* new values arrive with a short rise + unblur */
+.swap { animation: swapIn 0.65s var(--ease) both; }
+@keyframes swapIn { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+.swap-icon { animation: iconIn 0.8s var(--ease) both; }
+@keyframes iconIn { from { opacity: 0; transform: scale(0.86) rotate(-4deg); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+.hourly-scroll-strip, .daily-list-wrapper { transition: opacity 0.35s; }
+body.refreshing .hourly-scroll-strip, body.refreshing .daily-list-wrapper { opacity: 0.55; }
+
+/* "Updated just now" is also the refresh button */
+.last-updated-badge {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px 6px 0; margin-top: 12px;
+  font: inherit; font-size: 0.72rem; color: var(--ink-3); border-radius: 8px;
+  transition: color 0.2s;
+}
+.last-updated-badge::before {
+  content: ''; width: 13px; height: 13px; background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-2.64-6.36'/%3E%3Cpath d='M21 3v6h-6'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-2.64-6.36'/%3E%3Cpath d='M21 3v6h-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 0.6s var(--ease);
+}
+.last-updated-badge:hover { color: var(--ink); }
+.last-updated-badge:hover::before { transform: rotate(180deg); }
+.last-updated-badge.is-spinning { color: var(--accent); }
+.last-updated-badge.is-spinning::before { animation: spin 0.9s linear infinite; }
+
+/* Pull-to-refresh pill */
+.ptr-pill {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); z-index: 250;
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--pop); color: var(--ink-2); border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow); pointer-events: none;
+  opacity: 0; transform: translate(-50%, -60px) scale(0.7);
+  transition: transform 0.45s var(--ease), opacity 0.3s, color 0.25s, background 0.25s;
+}
+.ptr-pill.ready { color: var(--accent); }
+.ptr-pill svg { transition: transform 0.15s linear; }
+.ptr-pill.spinning { color: var(--accent); }
+.ptr-pill.spinning svg { animation: spin 0.8s linear infinite; transform: none !important; }
+@media (min-width: 900px) { .ptr-pill { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  body.refreshing .hero-stage-card::after, body.refreshing .panel::after { animation: none; }
+  .swap, .swap-icon { animation: none; }
 }
